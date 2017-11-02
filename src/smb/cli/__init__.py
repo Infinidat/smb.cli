@@ -13,39 +13,22 @@ Usage:
 Options:
     <size>                      desired volume size (examples: 10gb, 100mb, 1tb)
     --mount=PATH                mount path [default: XXXX]
+    --pool=POOL_NAME            pool to provision on default is taken from XXX
 
 {privileges_text}
-
-
 """
 
-# This piece of code is a modified version of powertools.cli __init__.py
-import os
 import sys
 import docopt
+import colorama
 from smb.cli.__version__ import __version__
 
 def get_privileges_text():
-    import colorama
     return colorama.Fore.RED + "This tool requires administrative privileges." + colorama.Fore.RESET
 
 
-def shorten_docopt_exit_string(e):
-    # shorten the usage lines printed by DocoptExit to include only lines that are relevant to the command
-    # get all the command words in argv (ignore flags and the executable)
-    argv = [word for word in sys.argv[1:] if not word.startswith('-') and word in __doc__]
-    argv_len = len(argv)
-    if argv_len == 0:
-        return
-    short_usage_lines = [line for line in e.usage.split("\n")
-                         if line.split()[1:argv_len + 1] == argv]
-    if len(short_usage_lines) > 0:
-        # 'code' is inherited from SystemExit and it's what's printed to the screen
-        # it may contain a message, and it contains the usage that we want to replace
-        e.code = e.code[:e.code.find("Usage:\n")] + "Usage:\n" + "\n".join(short_usage_lines)
-
-
-def parse_commandline_arguments(argv):
+def commandline_to_docopt(argv):
+    import os
     from colorama import init
     global output_stream
     if 'TERM' not in os.environ:
@@ -54,37 +37,45 @@ def parse_commandline_arguments(argv):
     doc = __doc__
     try:
         return docopt.docopt(doc.format(version=__version__,
-                                        privileges_text=get_privileges_text(),
-                                        prefix='nt').strip(),
+                                        privileges_text=get_privileges_text()).strip(),
                                         version=__version__, help=True, argv=argv)
     except docopt.DocoptExit as e:
-        shorten_docopt_exit_string(e)
+        print colorama.Fore.RED + "Invalid Arguments" + colorama.Fore.RESET
         raise
 
 
 def in_cli(argv=sys.argv[1:]):
-    arguments = parse_commandline_arguments(argv)
-    # we import the engine script here because it contains many imports and may take time to load,
-    # but we want the docopt check to run first, as fast as possible
-    from .engine import run_command
-    from infi.vendata.powertools.utils.broken_pipe import silence_broken_pipe_on_stdout_and_stderr
     import warnings
+    arguments = commandline_to_docopt(argv)
     with warnings.catch_warnings():
-        import infinisdk  # noqa
-    silence_broken_pipe_on_stdout_and_stderr()
-    return run_command(arguments)
+        import infinisdk
+    arguments_to_functions(arguments)
 
 
-def pre_uninstall():
-    from os import path
-    from shutil import rmtree
-    from infi.vendata.powertools import PROJECTROOT
-    try:
-        conf_dir = path.join(PROJECTROOT, 'conf')
-        if path.exists(conf_dir):
-            rmtree(conf_dir, ignore_errors=True)
-    finally:
-        return 0
+def arguments_to_functions(arguments):
+    if arguments['fs']:
+        if arguments['create']:
+            run_fs_create()
+        if arguments['delete']:
+            run_fs_delete()
+        if arguments['attach']:
+            run_fs_attach()
+        if arguments['detache']:
+            run_fs_detache()
+        if arguments['query']:
+            run_fs_query()
+    if arguments['defaults']:
+        if arguments['get']:
+            run_defaults_get()
+        if arguments['set']:
+            run_defaults_get()
+
+
+def run_defaults_get():
+    from smb.cli.defaults import defaults_get
+    defaults_get()
+
+
 
 
 #- create volume
