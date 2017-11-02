@@ -1,4 +1,4 @@
-CUSTOMER_CONFIG_FILE = 'customer_config'
+CUSTOMER_CONFIG_FILE = 'events_config'
 INFINIDAT_CONFIG_FILE = 'infinidat_config'
 
 def powershell_config_to_dict(filename):
@@ -15,6 +15,7 @@ def powershell_config_to_dict(filename):
 
 
 def read_config(filename):
+    import colorama
     from os import path, pardir
     from smb import PROJECTROOT
     try:
@@ -22,18 +23,20 @@ def read_config(filename):
         if path.exists(conf_dir):
             config = powershell_config_to_dict(path.join(conf_dir, filename))
             return config
-    finally:
+        else:
+            print colorama.Fore.RED + "Coulnd't find config file at {}".format(conf_dir) + colorama.Fore.RESET
+    except:
         return
 
 
 def defaults_get():
     config = read_config(INFINIDAT_CONFIG_FILE)
-    print \
-    """
-    defaults:
-        default mountpoint: {mount}
-        default pool:       {pool}
-    """.format(mount=config.MountRoot, pool=config.PoolName)
+    if config:
+        print """
+defaults:
+    default mountpoint: {mount}
+    default pool:       {pool}
+""".format(mount=config['MountRoot'], pool=config['PoolName'])
 
 
 def defaults_set():
