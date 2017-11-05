@@ -7,7 +7,7 @@ Usage:
     smbmgr fs attach --name=NAME --pool=POOL_NAME [--mount=PATH]
     smbmgr fs detache
     smbmgr fs query
-    smbmgr defaults set
+    smbmgr defaults set <key=value>
     smbmgr defaults get
 
 Options:
@@ -21,15 +21,20 @@ Options:
 import sys
 import docopt
 import colorama
+from smb.cli.defaults import defaults_get
 from smb.cli.__version__ import __version__
 
 def get_privileges_text():
     return colorama.Fore.RED + "This tool requires administrative privileges." + colorama.Fore.RESET
 
 
+def raise_invalid_argument():
+    from colorama import init
+    print colorama.Fore.RED + "Invalid Arguments" + colorama.Fore.RESET
+    raise
+
 def commandline_to_docopt(argv):
     import os
-    from colorama import init
     global output_stream
     if 'TERM' not in os.environ:
         init()
@@ -40,8 +45,7 @@ def commandline_to_docopt(argv):
                                         privileges_text=get_privileges_text()).strip(),
                                         version=__version__, help=True, argv=argv)
     except docopt.DocoptExit as e:
-        print colorama.Fore.RED + "Invalid Arguments" + colorama.Fore.RESET
-        raise
+        raise_invalid_argument()
 
 
 def in_cli(argv=sys.argv[1:]):
@@ -68,14 +72,26 @@ def arguments_to_functions(arguments):
         if arguments['get']:
             run_defaults_get()
         if arguments['set']:
-            run_defaults_get()
+            run_defaults_set(arguments)
 
 
 def run_defaults_get():
-    from smb.cli.defaults import defaults_get
     defaults_get()
 
-
+def run_defaults_set(arguments):
+    from smb.cli.defaults import defaults_set
+    print "Current Config:",
+    config = defaults_get()
+    key, value = arguments.get('<key=value>', "").split("=")
+    config_case_sensitive = {item.lower():item for item in config.keys()}
+    if key.lower() in config_case_sensitive.keys():
+        defaults_set(config_case_sensitive[key.lower()] ,value)
+        print colorama.Fore.GREEN + "New Config:",
+        defaults_get()
+        print colorama.Fore.RESET
+    else:
+        colorama.Fore.RED + "{} is not valid for your config".format(key) + colorama.Fore.RESET
+        exit()
 
 
 #- create volume
