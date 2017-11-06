@@ -12,40 +12,31 @@ Usage:
 
 Options:
     <size>                      desired volume size (examples: 10gb, 100mb, 1tb)
-    --mount=PATH                mount path [default: XXXX]
-    --pool=POOL_NAME            pool to provision on default is taken from XXX
+    --mount=PATH                mount path to the volume. View/change default using "smbmgr defaults get/set"
+    --pool=POOL_NAME            pool to provision/search volume on. View/change default using "smbmgr defaults get/set"
 
 {privileges_text}
 """
 
 import sys
 import docopt
-import colorama
-from smb.cli.defaults import defaults_get
+from smb.cli import lib
+from smb.cli.defaults import defaults_get, defaults_set
 from smb.cli.__version__ import __version__
 
-def get_privileges_text():
-    return colorama.Fore.RED + "This tool requires administrative privileges." + colorama.Fore.RESET
-
-
-def raise_invalid_argument():
-    from colorama import init
-    print colorama.Fore.RED + "Invalid Arguments" + colorama.Fore.RESET
-    raise
 
 def commandline_to_docopt(argv):
     import os
     global output_stream
-    if 'TERM' not in os.environ:
-        init()
+    lib._init_colorama()
     output_stream = sys.stdout
     doc = __doc__
     try:
         return docopt.docopt(doc.format(version=__version__,
-                                        privileges_text=get_privileges_text()).strip(),
+                                        privileges_text=lib.get_privileges_text()).strip(),
                                         version=__version__, help=True, argv=argv)
     except docopt.DocoptExit as e:
-        raise_invalid_argument()
+        lib.raise_invalid_argument()
 
 
 def in_cli(argv=sys.argv[1:]):
@@ -55,11 +46,21 @@ def in_cli(argv=sys.argv[1:]):
         import infinisdk
     arguments_to_functions(arguments)
 
+def _use_default_config_if_needed(arguments):
+    '''Set default values from config in case the user didn't put them.
+    In our case only pool name and mount path '''
+    config = defaults_get(silent=True)
+    if not arguments['--pool']:
+        arguments['--pool'] = config['PoolName']
+    if not arguments['--mount']:
+        arguments['--mount'] = config['MountRoot']
+    return arguments
 
 def arguments_to_functions(arguments):
     if arguments['fs']:
+        arguments = _use_default_config_if_needed(arguments)
         if arguments['create']:
-            run_fs_create()
+            run_fs_create(arguments)
         if arguments['delete']:
             run_fs_delete()
         if arguments['attach']:
@@ -79,7 +80,7 @@ def run_defaults_get():
     defaults_get()
 
 def run_defaults_set(arguments):
-    from smb.cli.defaults import defaults_set
+    import colorama
     print "Current Config:",
     config = defaults_get()
     key, value = arguments.get('<key=value>', "").split("=")
@@ -90,10 +91,20 @@ def run_defaults_set(arguments):
         defaults_get()
         print colorama.Fore.RESET
     else:
-        colorama.Fore.RED + "{} is not valid for your config".format(key) + colorama.Fore.RESET
+        lib.print_red("{} is not valid for your config".format(key))
         exit()
 
+def run_fs_create(arguments):
+    from smb.cli.fs import vol_create
+    vol_create(arguments['--name'], arguments['--pool'], arguments['<size>'])
 
+
+
+# Need more validations to all CLI commands
+# pool exists and has enough space
+# volume name isn't duplicate
+# Cluster exists and host is part of cluster
+#
 #- create volume
 #- map volume
 #- verify mapping
@@ -103,5 +114,5 @@ def run_defaults_set(arguments):
 #
 #vol_create
 #vol_map
-#vol_to_mount.ps1 point get mapped vol and mkfs + map + adds to Cluster
+#vol_to_mountpoint.ps1  get mapped vol and mkfs + map + adds to Cluster
 #

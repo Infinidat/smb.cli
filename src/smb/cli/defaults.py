@@ -1,5 +1,4 @@
 from smb import PROJECTROOT
-CUSTOMER_CONFIG_FILE = 'events_config'
 INFINIDAT_CONFIG_FILE = 'infinidat_config'
 
 
@@ -18,7 +17,6 @@ def powershell_config_to_dict(filename):
 def change_powershell_config(key, value):
     import fileinput
     from os import path, pardir
-    print key, value
     conf_dir = path.join(PROJECTROOT, pardir, 'Config')
     file = path.join(conf_dir, INFINIDAT_CONFIG_FILE)
     if not read_config(file):
@@ -51,10 +49,11 @@ def read_config(filename):
         return
 
 
-def defaults_get():
+def defaults_get(silent=False):
     config = read_config(INFINIDAT_CONFIG_FILE)
-    if config:
-        print """
+    if silent or not config:
+        return config
+    print """
 defaults:
     default MountRoot: {mount}
     default PoolName:  {pool}
