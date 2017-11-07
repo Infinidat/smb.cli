@@ -3,9 +3,9 @@ INFINIDAT SMB Cluster and exports manager
 
 Usage:
     smbmgr fs create <size> --name=NAME [--mount=PATH] [--pool=POOL]
-    smbmgr fs delete --name --yes
-    smbmgr fs attach --name=NAME --pool=POOL_NAME [--mount=PATH]
-    smbmgr fs detache
+    smbmgr fs delete --name=NAME [--yes]
+    smbmgr fs attach --name=NAME [--yes] [--pool=POOL_NAME] [--mount=PATH]
+    smbmgr fs detache [--yes]
     smbmgr fs query
     smbmgr defaults set <key=value>
     smbmgr defaults get
@@ -14,6 +14,7 @@ Options:
     <size>                      desired volume size (examples: 10gb, 100mb, 1tb)
     --mount=PATH                mount path to the volume. View/change default using "smbmgr defaults get/set"
     --pool=POOL_NAME            pool to provision/search volume on. View/change default using "smbmgr defaults get/set"
+    --yes                       skip prompt on dangers operations
 
 {privileges_text}
 """
@@ -26,7 +27,6 @@ from smb.cli.__version__ import __version__
 
 
 def commandline_to_docopt(argv):
-    import os
     global output_stream
     lib._init_colorama()
     output_stream = sys.stdout
@@ -42,9 +42,8 @@ def commandline_to_docopt(argv):
 def in_cli(argv=sys.argv[1:]):
     import warnings
     arguments = commandline_to_docopt(argv)
-    with warnings.catch_warnings():
-        import infinisdk
     arguments_to_functions(arguments)
+
 
 def _use_default_config_if_needed(arguments):
     '''Set default values from config in case the user didn't put them.
@@ -64,7 +63,7 @@ def arguments_to_functions(arguments):
         if arguments['delete']:
             run_fs_delete()
         if arguments['attach']:
-            run_fs_attach()
+            run_fs_attach(arguments)
         if arguments['detache']:
             run_fs_detache()
         if arguments['query']:
@@ -84,9 +83,9 @@ def run_defaults_set(arguments):
     print "Current Config:",
     config = defaults_get()
     key, value = arguments.get('<key=value>', "").split("=")
-    config_case_sensitive = {item.lower():item for item in config.keys()}
+    config_case_sensitive = {item.lower(): item for item in config.keys()}
     if key.lower() in config_case_sensitive.keys():
-        defaults_set(config_case_sensitive[key.lower()] ,value)
+        defaults_set(config_case_sensitive[key.lower()], value)
         print colorama.Fore.GREEN + "New Config:",
         defaults_get()
         print colorama.Fore.RESET
@@ -94,10 +93,20 @@ def run_defaults_set(arguments):
         lib.print_red("{} is not valid for your config".format(key))
         exit()
 
-def run_fs_create(arguments):
-    from smb.cli.fs import vol_create
-    vol_create(arguments['--name'], arguments['--pool'], arguments['<size>'])
 
+def run_fs_create(arguments):
+    from smb.cli.fs import vol_create, map_vol_to_cluster
+    volume = vol_create(arguments['--name'], arguments['--pool'], arguments['<size>'])
+    map_vol_to_cluster(volume)
+
+
+def run_fs_attach(arguments):
+    from smb.cli.fs import _validate_vol, map_vol_to_cluster
+    config = defaults_get(silent=True)
+    ibox = lib.connect()
+    volume = _validate_vol(ibox, vol_name=arguments['--name'])
+    lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'],config['Cluster']), arguments)
+    map_vol_to_cluster(volume)
 
 
 # Need more validations to all CLI commands

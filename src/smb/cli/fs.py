@@ -1,6 +1,6 @@
+import sys
 import infinisdk
 from smb.cli import lib
-from infi.credentials_store import CLICredentialsStore
 from smb.cli.defaults import defaults_get
 
 
@@ -24,38 +24,18 @@ class Fs(object):
         return self.get_vol_infinibox_name
 
 
-class SMBCrdentialsStore(CLICredentialsStore):
-    def _get_file_folder(self):
-        return ".smb.credentials_store"
-
-    def authenticate(self, key, credentilas):
-        return True
-
-    def ask_credentials_prompt(self, key):
-        print 'Connecting to InfiniBox ' + str(key)
-
-
-def initiate_store(store_name):
-    crdentials_store = SMBCrdentialsStore("all_iboxes")
-    return crdentials_store.get_credentials(store_name)
-
-
-def connect():
-    '''tries to connect using credintal store'''
-    config = defaults_get(silent=True)
-    store = initiate_store(config['IboxAddress'])
-    ibox = infinisdk.InfiniBox(str(config['IboxAddress']),
-                               auth=(store.get_username(), store.get_password()))
-    response = ibox.login()
-    if response.status_code == 200:
-        return ibox
-    else:
-        print "Couldn't connect with current credentilas"
-        exit()
-
 def map_vol_to_cluster(volume):
-    ibox = connect()
+    config = defaults_get(silent=True)
+    ibox = lib.connect()
     cluster = ibox.host_clusters.choose(name=config['Cluster'])
+    try:
+        mapping = cluster.map_volume(volume)
+    except:
+        error = sys.exc_info()[1]
+        lib.print_red("Couldn't map vol {} to cluster {}! {!r}".format(volume.get_name(),
+                                                                       cluster.get_name(), str(error.message)))
+        exit()
+    print "Volume {} was just mapped to {}".format(volume.get_name(), cluster.get_name())
 
 
 def _validate_mount(mount):
@@ -91,15 +71,21 @@ def _validate_pool(pool_name, ibox_sdk, size):
         exit()
     return pool
 
+def _validate_vol(ibox_sdk, vol_name):
+    try:
+        return ibox_sdk.volumes.choose(name=vol_name)
+    except ObjectNotFound:
+        lib.print_yellow("Volume {} couldn't be found on {}".format(vol_name, ibox_sdk.get_name()))
+        exit()
 
 def vol_create(volume_name, pool_name, size_str):
-    import sys
-    ibox = connect()
+    ibox = lib.connect()
     size = _validate_size(size_str)
     pool = _validate_pool(pool_name, ibox, size)
     try:
-        ibox.volumes.create(name=volume_name, pool=pool, size=size, provtype='THIN')
+        return ibox.volumes.create(name=volume_name, pool=pool, size=size, provtype='THIN')
     except:
         error = sys.exc_info()[1]
         lib.print_red("Volume {} couldn't be created. {!r}".format(volume_name, str(error.message)))
         exit()
+
