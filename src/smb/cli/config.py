@@ -11,7 +11,7 @@ def powershell_config_to_dict(filename):
         file_content.pop(-1)
         for line in file_content:
             key, val = line.strip().split(' = ')
-            config[key] = val.replace('"','')
+            config[key] = val.replace('"', '')
         return config
 
 def change_powershell_config(key, value):
@@ -34,34 +34,34 @@ def change_powershell_config(key, value):
 
 def read_config(filename):
     import colorama
+    from smb.cli.lib import print_red
     from os import path, pardir
     try:
         conf_dir = path.join(PROJECTROOT, pardir, 'Config')
         if path.exists(conf_dir):
             config = powershell_config_to_dict(path.join(conf_dir, filename))
             if config is None:
-                print colorama.Fore.RED + "config file {} is empty!".format(conf_dir) + colorama.Fore.RESET
+                print_red("config file {} is empty!".format(path.abspath(conf_dir)))
                 return
             return config
         else:
-            print colorama.Fore.RED + "Couldn't find config file at {}".format(conf_dir) + colorama.Fore.RESET
+            print_red("Couldn't find config file at {}".format(path.abspath(conf_dir)))
     except:
         return
 
 
-def defaults_get(silent=False):
+def config_get(silent=False):
     config = read_config(INFINIDAT_CONFIG_FILE)
     if silent or not config:
         return config
     print """
-defaults:
+config:
     default MountRoot: {mount}
     default PoolName:  {pool}
 """.format(mount=config['MountRoot'], pool=config['PoolName'])
     return config
 
 
-def defaults_set(key, value):
+def config_set(key, value):
     print "Changing {} = {}".format(key, value)
     change_powershell_config(key, value)
-

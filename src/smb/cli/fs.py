@@ -72,6 +72,7 @@ def _validate_pool(pool_name, ibox_sdk, size):
     return pool
 
 def _validate_vol(ibox_sdk, vol_name):
+    from infinisdk.core.type_binder import ObjectNotFound
     try:
         return ibox_sdk.volumes.choose(name=vol_name)
     except ObjectNotFound:
