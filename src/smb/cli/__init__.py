@@ -96,14 +96,10 @@ def run_config_set(arguments):
         exit()
 
 
-def do_no_rescan(list_of_disks):
-    print "asd"
-
-
 def run_fs_create(arguments):
-    from smb.cli.fs import vol_create, map_vol_to_cluster
-    volume = vol_create(arguments['--name'], arguments['--pool'], arguments['<size>'])
-    map_vol_to_cluster(volume)
+    from smb.cli.fs import create_volume_on_infinibox, fs_create
+    volume = create_volume_on_infinibox(arguments['--name'], arguments['--pool'], arguments['<size>'])
+    fs_create(volume)
 
 
 def run_fs_attach(arguments):
@@ -113,11 +109,10 @@ def run_fs_attach(arguments):
     volume = _validate_vol(ibox, vol_name=arguments['--name'])
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
     map_vol_to_cluster(volume)
-
+    lib.exit_if_vol_not_mapped(volume)
 
 
 # Need more validations to all CLI commands
-# pool exists and has enough space
 # volume name isn't duplicate
 # Cluster exists and host is part of cluster
 #
@@ -128,7 +123,7 @@ def run_fs_attach(arguments):
 #- export
 #
 #
-#vol_create
+#create_volume_on_infinibox
 #vol_map
 #vol_to_mountpoint.ps1  get mapped vol and mkfs + map + adds to Cluster
 #

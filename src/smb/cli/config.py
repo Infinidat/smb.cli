@@ -33,7 +33,6 @@ def change_powershell_config(key, value):
     fileinput.close()
 
 def read_config(filename):
-    import colorama
     from smb.cli.lib import print_red
     from os import path, pardir
     try:
