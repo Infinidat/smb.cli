@@ -158,9 +158,9 @@ def fs_create(volume):
     map_vol_to_cluster(volume)
     lib.exit_if_vol_not_mapped(volume)
     new_fs = instance_fs(volume)
-    # try:
-    _mountpoint_exist(new_fs.get_mountpoint(), create=True)
-    _run_vol_to_cluster_scirpt(new_fs)
-    # except:
-        # lib.print_red("Something went wrong. Rolling back operations...")
-        # clean_fs(new_fs)
+    try:
+        _mountpoint_exist(new_fs.get_mountpoint(), create=True)
+        _run_vol_to_cluster_scirpt(new_fs)
+    except:
+        lib.print_red("Something went wrong. Rolling back operations...")
+        clean_fs(new_fs)
