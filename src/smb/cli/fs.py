@@ -26,10 +26,9 @@ def _get_winid_by_serial(luid):
     '''logical unit id (luid) is also the infinibox volume serial
     '''
     from infi.execute import execute
-    cmd_output = execute(['powershell', '-c', 'Get-Disk', '-SerialNumber', str(luid)]).get_stdout()
-    for line in cmd_output.splitlines():
-        if 'InfiniBox' in line:
-            return line.split()[0]
+    cmd_output = execute(['powershell', '-c', 'Get-Disk', '-SerialNumber',
+                          str(luid), '|', 'Select-Object -ExpandProperty number']).get_stdout()
+    return cmd_output
 
 
 def _mountpoint_exist(mountpoint, create=False):
@@ -49,7 +48,7 @@ def _run_vol_to_cluster_scirpt(fs):
     from os import path, pardir
     vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'prep_and_join_vol_to_cluster.ps1'))
     cmd = execute_assert_success(['powershell', '.', '"' + vol_to_cluster_script.replace('\\', '/') +
-                                 '"' + "-DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
+                                 '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
     print cmd.get_stdout()
     print cmd.get_stderr()
 
