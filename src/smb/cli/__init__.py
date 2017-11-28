@@ -55,6 +55,9 @@ def _use_default_config_if_needed(arguments):
     return arguments
 
 def arguments_to_functions(arguments):
+    from lib import precheck
+    if not (arguments['query'] or arguments['config']):
+        precheck()
     if arguments['fs']:
         arguments = _use_default_config_if_needed(arguments)
         if arguments['create']:

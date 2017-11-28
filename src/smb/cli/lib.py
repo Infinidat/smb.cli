@@ -9,6 +9,7 @@ if sys.version_info > (3, 0):
 else:
     _input = raw_input
 
+
 class SMBCrdentialsStore(CLICredentialsStore):
     def _get_file_folder(self):
         return ".smb.credentials_store"
@@ -29,9 +30,9 @@ def approve_danger_op(message, arguments):
             exit()
     return
 
+
 def exit_if_vol_not_mapped(volume):
     ''' receives an infinisdk volume type and checks if mapped'''
-
     def _is_vol_mapped(volume_serial, timeout=3):
         from infi.storagemodel import get_storage_model
         from time import sleep
@@ -68,14 +69,46 @@ def _init_colorama():
     if 'TERM' not in os.environ:
         init()
 
+def am_I_master():
+    from infi.execute import execute_assert_success
+    from platform import node
+    config = config_get(silent=True)
+    cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
+                            '-ExpandProperty', 'OwnerNode', '|', 'Select-Object', '-ExpandProperty', 'name'])
+    if cmd.get_stdout().strip() == node():
+        return True
+    else:
+        print_red("The Node you are running on is NOT the Active Cluster Node")
+        exit()
+
+def is_cluster_online():
+    from infi.execute import execute_assert_success
+    config = config_get(silent=True)
+    cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
+                            '-ExpandProperty', 'state'])
+    if cmd.get_stdout().strip() != 'Online':
+        print_red("Cluster group {} NOT in Online state !! state is: {}".format(config['FSRoleName'], cmd.get_stdout().strip()))
+        exit()
+
+
+def precheck():
+    print "Running Prechecks..."
+    connect()
+    is_cluster_online()
+    am_I_master()
+
+
 def print_green(text):
     print colorama.Fore.GREEN + text + colorama.Fore.RESET
+
 
 def print_yellow(text):
     print colorama.Fore.YELLOW + text + colorama.Fore.RESET
 
+
 def print_red(text):
     print colorama.Fore.RED + text + colorama.Fore.RESET
+
 
 def connect():
     '''tries to connect using credintal store'''
@@ -87,5 +120,5 @@ def connect():
     if response.status_code == 200:
         return ibox
     else:
-        print "Couldn't connect with current credentials"
+        print_red("Couldn't connect to InfiniBox with current credentials")
         exit()
