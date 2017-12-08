@@ -4,7 +4,7 @@ INFINIDAT SMB Cluster and exports manager
 Usage:
     smbmgr fs create <size> --name=NAME [--mount=PATH] [--pool=POOL]
     smbmgr fs delete --name=NAME [--yes]
-    smbmgr fs attach --name=NAME [--yes] [--pool=POOL_NAME] [--mount=PATH]
+    smbmgr fs attach --name=NAME [--yes] [--force] [--pool=POOL_NAME] [--mount=PATH]
     smbmgr fs detache [--yes]
     smbmgr fs query
     smbmgr config set <key=value>
@@ -15,6 +15,7 @@ Options:
     --mount=PATH                mount path to the volume. View/change default using "smbmgr config get/set"
     --pool=POOL_NAME            pool to provision/search volume on. View/change default using "smbmgr config get/set"
     --yes                       skip prompt on dangers operations
+    --force                     For "fs attach" only, continue on errors (not recommanded !)
 
 {privileges_text}
 """
@@ -77,6 +78,11 @@ def arguments_to_functions(arguments):
             run_config_set(arguments)
 
 
+
+def run_fs_query():
+    from smb.cli.fs import fs_query
+    fs_query()
+
 def run_config_get():
     config_get()
 
@@ -106,13 +112,12 @@ def run_fs_create(arguments):
 
 
 def run_fs_attach(arguments):
-    from smb.cli.fs import _validate_vol, map_vol_to_cluster
+    from smb.cli.fs import _validate_vol, map_vol_to_cluster, fs_attach
     config = config_get(silent=True)
     ibox = lib.connect()
     volume = _validate_vol(ibox, vol_name=arguments['--name'])
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
-    map_vol_to_cluster(volume)
-    lib.exit_if_vol_not_mapped(volume)
+    fs_attach(volume, arguments['--force'])
 
 
 # Need more validations to all CLI commands

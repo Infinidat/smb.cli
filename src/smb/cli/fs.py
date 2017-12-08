@@ -6,8 +6,8 @@ class Fs(object):
     def __init__(self, infinibox_vol_name, lun_number, winid, mountpoint):
         self.infinibox_vol_name = infinibox_vol_name
         self.lun_number = lun_number
-        self.winid = winid
-        self.mountpoint = mountpoint
+        self.winid = int(winid)
+        self.mountpoint = mountpoint.strip()
 
     def get_mountpoint(self):
         return self.mountpoint
@@ -46,11 +46,20 @@ def _run_vol_to_cluster_scirpt(fs):
     from infi.execute import execute_assert_success
     from smb import PROJECTROOT
     from os import path, pardir
-    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'prep_and_join_vol_to_cluster.ps1'))
+    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'src', 'prep_and_add_vol_to_cluster.ps1'))
     cmd = execute_assert_success(['powershell', '.', '"' + vol_to_cluster_script.replace('\\', '/') +
                                  '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
-    print cmd.get_stdout()
-    print cmd.get_stderr()
+    import pdb ; pdb.set_trace()
+
+
+def _run_attach_vol_to_cluster_scirpt(fs):
+    from infi.execute import execute_assert_success
+    from smb import PROJECTROOT
+    from os import path, pardir
+    attach_vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'src', 'add_vol_to_cluster.ps1'))
+    cmd = execute_assert_success(['powershell', '.', '"' + attach_vol_to_cluster_script.replace('\\', '/') +
+                                 '"' + " -DiskNumber {}".format(fs.get_winid())])
+
 
 def _validate_size(size_str):
     import capacity
@@ -100,8 +109,10 @@ def instance_fs(volume):
     win_id = _get_winid_by_serial(volume.get_serial())
     return Fs(volume.get_name(), lun_number, win_id, mountpoint)
 
+def unmap_vol_from_cluster_windows(volume_name):
+    pass
 
-def unmap_vol_from_cluster(volume_name):
+def unmap_vol_from_cluster_infinibox(volume_name):
     config = config_get(silent=True)
     ibox = lib.connect()
     cluster = ibox.host_clusters.choose(name=config['Cluster'])
@@ -121,7 +132,7 @@ def map_vol_to_cluster(volume):
         lib.print_red("Couldn't map vol {} to cluster {}! {!r}".format(volume.get_name(),
                                                                        cluster.get_name(), str(error.message)))
         exit()
-    print "Volume {} was just mapped to {}".format(volume.get_name(), cluster.get_name())
+    print "Volume {} is now mapped to {}".format(volume.get_name(), cluster.get_name())
 
 
 def delete_volume_on_infinibox(volume_name):
@@ -146,11 +157,23 @@ def create_volume_on_infinibox(volume_name, pool_name, size_str):
 
 def clean_fs(fs):
     import os
-    unmap_vol_from_cluster(fs.get_infinibox_vol_name())
+    unmap_vol_from_cluster_infinibox(fs.get_infinibox_vol_name())
     if _mountpoint_exist(fs.get_mountpoint()):
         os.rmdir(fs.get_mountpoint())
         lib.print_yellow("Dirctory {} was deleted".format(fs.get_mountpoint()))
     delete_volume_on_infinibox(fs.get_infinibox_vol_name())
+
+def fs_query():
+    pass
+
+def fs_attach(volume, force=False):
+    if force and lib.is_volume_mapped_to_cluster(volume):
+        pass
+    else:
+        map_vol_to_cluster(volume)
+    lib.exit_if_vol_not_mapped(volume)
+    existing_fs = instance_fs(volume)
+    _run_attach_vol_to_cluster_scirpt(existing_fs)
 
 
 def fs_create(volume):
@@ -161,5 +184,6 @@ def fs_create(volume):
         _mountpoint_exist(new_fs.get_mountpoint(), create=True)
         _run_vol_to_cluster_scirpt(new_fs)
     except:
+        e = sys.exc_info
         lib.print_red("Something went wrong. Rolling back operations...")
         clean_fs(new_fs)

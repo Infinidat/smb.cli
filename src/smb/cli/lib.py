@@ -25,7 +25,7 @@ def approve_danger_op(message, arguments):
     if arguments['--yes'] is False:
         print_yellow("You are going to perform: {}".format(message))
         print_yellow("This Operations is considered dangerous!")
-        proceed = _input("Would you like to proceed [y/N]").lower() in ('y', 'yes', 'Y', 'YES')
+        proceed = _input("Would you like to proceed [y/N] ").lower() in ('y', 'yes', 'Y', 'YES')
         if not proceed:
             exit()
     return
@@ -34,33 +34,62 @@ def approve_danger_op(message, arguments):
 def exit_if_vol_not_mapped(volume):
     ''' receives an infinisdk volume type and checks if mapped'''
     def _is_vol_mapped(volume_serial, timeout=3):
-        from infi.storagemodel import get_storage_model
         from time import sleep
-        storagemodel = get_storage_model()
-        multipath = storagemodel.get_native_multipath()
-        for n in range(1, timeout + 1):
-            storagemodel.rescan_and_wait_for(timeout_in_seconds=3)
-            mapped_vols = multipath.get_all_multipath_block_devices()
-            for vol in mapped_vols:
-                if str(vol.get_scsi_serial_number()) == volume.get_serial():
-                    return True
-            sleep(1)
+        from infi.execute import execute_assert_success
+        for n in range(0, timeout):
+            execute_assert_success(['powershell', '-c', 'Update-HostStorageCache'])
+            try:
+                a = execute_assert_success(['powershell', '-c', 'Get-Disk', '-SerialNumber', volume_serial])
+                print a.get_stdout()
+                print a.get_stderr()
+                return True
+            except:
+                sleep(1)
+                continue
         return False
 
+    def _rescan():
+        ''' From what I saw on 90% of the times the volume just apear on both nodes
+        If it doesn't we'll rescan
+        '''
+        from os import path, pardir
+        from infi.execute import execute
+        from smb import PROJECTROOT
+        HPT_BIN_FILE = 'infinihost.exe'
+        # to do need to think if we'd like to scan on remote and verify
+        hpt_bin = path.realpath(path.join(PROJECTROOT, pardir, pardir , 'Host Power Tools', 'bin', HPT_BIN_FILE))
+        execute([hpt_bin, 'rescan'])
+
     if not _is_vol_mapped(volume.get_serial()):
-        print_red("Windows couldn't gain access to volume {} which was just mapped".format(volume.get_name()))
-        exit()
+        _rescan()
+        if not _is_vol_mapped(volume.get_serial()):
+            print_red("Windows couldn't gain access to volume {} which was just mapped".format(volume.get_name()))
+            exit()
+
+def is_volume_mapped_to_cluster(volume):
+    config = config_get(silent=True)
+    ibox = volume.get_system()
+    cluster = ibox.host_clusters.choose(name=config['Cluster'])
+    try:
+        cluster.get_lun(volume)
+    except:
+        error = sys.exc_info()[1]
+        return False
+    return True
 
 def initiate_store(store_name):
     crdentials_store = SMBCrdentialsStore("all_iboxes")
     return crdentials_store.get_credentials(store_name)
 
+
 def get_privileges_text():
     return colorama.Fore.RED + "This tool requires administrative privileges." + colorama.Fore.RESET
+
 
 def raise_invalid_argument():
     print colorama.Fore.RED + "Invalid Arguments" + colorama.Fore.RESET
     raise
+
 
 def _init_colorama():
     import os
