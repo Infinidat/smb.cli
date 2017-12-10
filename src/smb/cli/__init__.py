@@ -5,17 +5,18 @@ Usage:
     smbmgr fs create <size> --name=NAME [--mount=PATH] [--pool=POOL]
     smbmgr fs delete --name=NAME [--yes]
     smbmgr fs attach --name=NAME [--yes] [--force] [--pool=POOL_NAME] [--mount=PATH]
-    smbmgr fs detache [--yes]
-    smbmgr fs query
+    smbmgr fs detach [--yes]
+    smbmgr fs query [--size_unit=UNIT]
     smbmgr config set <key=value>
     smbmgr config get
 
 Options:
-    <size>                      desired volume size (examples: 10gb, 100mb, 1tb)
+    <size>                      desired volume size (examples: 10GB, 100MB, 1TB)
     --mount=PATH                mount path to the volume. View/change default using "smbmgr config get/set"
     --pool=POOL_NAME            pool to provision/search volume on. View/change default using "smbmgr config get/set"
     --yes                       skip prompt on dangers operations
-    --force                     For "fs attach" only, continue on errors (not recommanded !)
+    --force                     Continue on errors (not recommended !). Only for "fs attach"
+    --size_unit=UNIT            Show sizes in specific format. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
 
 {privileges_text}
 """
@@ -67,10 +68,10 @@ def arguments_to_functions(arguments):
             run_fs_delete()
         if arguments['attach']:
             run_fs_attach(arguments)
-        if arguments['detache']:
-            run_fs_detache()
+        if arguments['detach']:
+            run_fs_detach()
         if arguments['query']:
-            run_fs_query()
+            run_fs_query(arguments)
     if arguments['config']:
         if arguments['get']:
             run_config_get()
@@ -79,9 +80,9 @@ def arguments_to_functions(arguments):
 
 
 
-def run_fs_query():
+def run_fs_query(arguments):
     from smb.cli.fs import fs_query
-    fs_query()
+    fs_query(arguments['--size_unit'])
 
 def run_config_get():
     config_get()

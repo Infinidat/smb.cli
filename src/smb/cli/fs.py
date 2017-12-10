@@ -1,13 +1,18 @@
 import sys
+from capacity import *
 from smb.cli import lib
 from smb.cli.config import config_get
 
 class Fs(object):
-    def __init__(self, infinibox_vol_name, lun_number, winid, mountpoint):
+    def __init__(self, infinibox_vol_name, lun_number, winid, mountpoint, fs_size, used_size, num_snaps, num_shares):
         self.infinibox_vol_name = infinibox_vol_name
         self.lun_number = lun_number
         self.winid = int(winid)
         self.mountpoint = mountpoint.strip()
+        self.fs_size = fs_size
+        self.used_size = used_size
+        self.num_snaps = num_snaps
+        self.num_shares = num_shares
 
     def get_mountpoint(self):
         return self.mountpoint
@@ -20,6 +25,34 @@ class Fs(object):
 
     def get_infinibox_vol_name(self):
         return self.infinibox_vol_name
+
+    def get_fs_size(self):
+        return self.fs_size
+
+    def get_used_size(self):
+        return self.used_size
+
+    def get_num_snaps(self):
+        return self.num_snaps
+
+    def get_num_shares(self):
+        return self.num_shares
+
+
+def instance_fs(volume):
+    ''' recives an infinisdk volume object and create a usable fs instance
+    '''
+    # TODO: Get number of shares
+    from os import path
+    ibox = volume.get_system()
+    config = config_get(silent=True)
+    cluster = ibox.host_clusters.choose(name=config['Cluster'])
+    lun_number = cluster.get_lun(volume).get_lun()
+    mountpoint = path.realpath(path.join(config['MountRoot'], volume.get_name()))
+    win_id = _get_winid_by_serial(volume.get_serial())
+    num_snaps = len(volume.get_snapshots().to_list())
+    return Fs(volume.get_name(), lun_number, win_id, mountpoint, volume.get_size(), volume.get_used_size(),
+              num_snaps, 0)
 
 
 def _get_winid_by_serial(luid):
@@ -97,18 +130,6 @@ def _validate_vol(ibox_sdk, vol_name):
         exit()
 
 
-def instance_fs(volume):
-    ''' recives an infinisdk volume object and create a usable fs instance
-    '''
-    from os import path
-    ibox = volume.get_system()
-    config = config_get(silent=True)
-    cluster = ibox.host_clusters.choose(name=config['Cluster'])
-    lun_number = cluster.get_lun(volume).get_lun()
-    mountpoint = path.join(config['MountRoot'], volume.get_name())
-    win_id = _get_winid_by_serial(volume.get_serial())
-    return Fs(volume.get_name(), lun_number, win_id, mountpoint)
-
 def unmap_vol_from_cluster_windows(volume_name):
     pass
 
@@ -147,7 +168,7 @@ def create_volume_on_infinibox(volume_name, pool_name, size_str):
     size = _validate_size(size_str)
     pool = _validate_pool(pool_name, ibox, size)
     try:
-        print "Creating volume {} in {}".format(volume_name, pool_name)
+        print "Creating volume {} in {} Pool".format(volume_name, pool_name)
         return ibox.volumes.create(name=volume_name, pool=pool, size=size, provtype='THIN')
     except:
         error = sys.exc_info()[1]
@@ -163,8 +184,66 @@ def clean_fs(fs):
         lib.print_yellow("Dirctory {} was deleted".format(fs.get_mountpoint()))
     delete_volume_on_infinibox(fs.get_infinibox_vol_name())
 
-def fs_query():
-    pass
+def _get_mapped_vols():
+    config = config_get(silent=True)
+    ibox = lib.connect()
+    cluster = ibox.host_clusters.choose(name=config['Cluster'])
+    mapped_vols  = cluster.get_lun_to_volume_dict()
+    return [ volume for volume in mapped_vols.itervalues()]
+
+def _print_format(val, val_type):
+    def _trim(val):
+        # only for name and mount
+        return val[0:15] + "..."
+
+    def _fill(val, val_type):
+        if val_type == "name":
+            return val.ljust(18)
+        if val_type == "mount":
+            return val.ljust(18)
+        if val_type in [ "size", "used_size"]:
+            return val.ljust(12)
+        if val_type in [ "snaps", "shares"]:
+            return val.ljust(7)
+
+
+    def _trim_or_fill(val, val_type):
+        if val_type in ["name", "mount"]:
+            if len(val) == 18:
+                return (val)
+            if len(val) > 18:
+                return _trim(val)
+            return _fill(val, val_type)
+        if val_type in [ "size", "used_size", "snaps", "shares" ]:
+            return _fill(val, val_type)
+
+    return _trim_or_fill(val, val_type)
+
+def print_fs_query(mapped_vols, print_units):
+    header = 'Name               Mount              Size         Used Size    Snaps   Shares'
+    print header
+    for volume in mapped_vols:
+        fs = instance_fs(volume)
+        if print_units:
+            fs_size = str((fs.get_fs_size() / print_units)) + str(print_units)[2:]
+            used_size = str((fs.get_used_size() / print_units)) + str(print_units)[2:]
+        else:
+            fs_size = str(fs.get_fs_size())
+            used_size = str(fs.get_used_size())
+        line = [_print_format(fs.get_infinibox_vol_name(), "name"),
+                _print_format(fs.get_mountpoint(), "mount"),
+                _print_format(fs_size, "size",),
+                _print_format(used_size, "used_size"),
+                _print_format(str(fs.get_num_snaps()),"snaps"),
+                _print_format(str(fs.get_num_shares()), "shares")]
+        print " ".join(line)
+
+def fs_query(units):
+    if units:
+        units = _validate_size(units)
+    print_fs_query(_get_mapped_vols(), units)
+
+
 
 def fs_attach(volume, force=False):
     if force and lib.is_volume_mapped_to_cluster(volume):
@@ -173,6 +252,7 @@ def fs_attach(volume, force=False):
         map_vol_to_cluster(volume)
     lib.exit_if_vol_not_mapped(volume)
     existing_fs = instance_fs(volume)
+    _mountpoint_exist(new_fs.get_mountpoint(), create=True)
     _run_attach_vol_to_cluster_scirpt(existing_fs)
 
 
