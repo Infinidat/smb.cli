@@ -5,7 +5,7 @@ Usage:
     smbmgr fs create <size> --name=NAME [--mount=PATH] [--pool=POOL]
     smbmgr fs delete --name=NAME [--yes]
     smbmgr fs attach --name=NAME [--yes] [--force] [--pool=POOL_NAME] [--mount=PATH]
-    smbmgr fs detach [--yes]
+    smbmgr fs detach --name=NAME    [--yes]
     smbmgr fs query [--size_unit=UNIT]
     smbmgr config set <key=value>
     smbmgr config get
