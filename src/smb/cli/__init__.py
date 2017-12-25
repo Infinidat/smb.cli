@@ -4,7 +4,7 @@ INFINIDAT SMB Cluster and exports manager
 Usage:
     smbmgr fs create <size> --name=NAME [--mount=PATH] [--pool=POOL]
     smbmgr fs delete --name=NAME [--yes]
-    smbmgr fs attach --name=NAME [--yes] [--force] [--pool=POOL_NAME] [--mount=PATH]
+    smbmgr fs attach --name=NAME [--mount=PATH] [--yes] [--force]
     smbmgr fs detach --name=NAME    [--yes]
     smbmgr fs query [--size_unit=UNIT]
     smbmgr config set <key=value>
@@ -17,6 +17,7 @@ Options:
     --yes                       skip prompt on dangers operations
     --force                     Continue on errors (not recommended !). Only for "fs attach"
     --size_unit=UNIT            Show sizes in specific format. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
+    --skip
 
 {privileges_text}
 """
@@ -57,9 +58,9 @@ def _use_default_config_if_needed(arguments):
     return arguments
 
 def arguments_to_functions(arguments):
-    from lib import precheck
+    from lib import PreChecks
     if not (arguments['query'] or arguments['config']):
-        precheck()
+        PreChecks()
     if arguments['fs']:
         arguments = _use_default_config_if_needed(arguments)
         if arguments['create']:
@@ -107,18 +108,15 @@ def run_config_set(arguments):
 
 
 def run_fs_create(arguments):
-    from smb.cli.fs import create_volume_on_infinibox, fs_create
-    volume = create_volume_on_infinibox(arguments['--name'], arguments['--pool'], arguments['<size>'])
-    fs_create(volume)
+    from smb.cli.fs import fs_create
+    fs_create(arguments['--name'],arguments['--mount'], arguments['--pool'], arguments['<size>'])
 
 
 def run_fs_attach(arguments):
-    from smb.cli.fs import _validate_vol, map_vol_to_cluster, fs_attach
+    from smb.cli.fs import fs_attach
     config = config_get(silent=True)
-    ibox = lib.connect()
-    volume = _validate_vol(ibox, vol_name=arguments['--name'])
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
-    fs_attach(volume, arguments['--force'])
+    fs_attach(arguments['--name'], arguments['--mount'], arguments['--force'])
 
 
 # Need more validations to all CLI commands
