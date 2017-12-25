@@ -83,16 +83,27 @@ def _run_vol_to_cluster_scirpt(fs):
     from smb import PROJECTROOT
     from os import path, pardir
     vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-cluster', 'src', 'prep_and_add_vol_to_cluster.ps1'))
-    cmd = execute_assert_success(['powershell', '.', '"' + vol_to_cluster_script.replace('\\', '/') +
+    try:
+        cmd = execute_assert_success(['powershell', '.', '"' + vol_to_cluster_script.replace('\\', '/') +
                                  '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
+    except:
+        error = sys.exc_info()[1]
+        lib.print_red("{} failed with error: {}".format(vol_to_cluster_script, error))
+        exit()
 
 
 def _run_attach_vol_to_cluster_scirpt(fs):
     from smb import PROJECTROOT
     from os import path, pardir
     attach_vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-cluster', 'src', 'add_vol_to_cluster.ps1'))
-    cmd = execute_assert_success(['powershell', '.', '"' + attach_vol_to_cluster_script.replace('\\', '/') +
+    try:
+        cmd = execute_assert_success(['powershell', '.', '"' + attach_vol_to_cluster_script.replace('\\', '/') +
                                  '"' + " -DiskNumber {}".format(fs.get_winid())])
+    except:
+        error = sys.exc_info()[1]
+        lib.print_red("{} failed with error: {}".format(attach_vol_to_cluster_script, error))
+        exit()
+
 
 
 def _validate_size(size_str):
@@ -269,14 +280,16 @@ def fs_attach(volume_name, force=False):
     fs = instance_fs(volume, sdk.get_cluster())
     _mountpoint_exist(fs.get_mountpoint())
     _run_attach_vol_to_cluster_scirpt(fs)
+    lib.print_green("Volume {} Attached to Cluster Successfully.".format(volume_name))
 
 
 def fs_create(volume_name, volume_pool, volume_size):
+    sdk = lib.InfiSdkObjects()
     volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size)
     try:
         fs_attach(volume_name)
     except:
         e = sys.exc_info
         lib.print_red("Something went wrong. Rolling back operations...")
-        fs = instance_fs(volume, cluster)
+        fs = instance_fs(volume, sdk.get_cluster())
         clean_fs(fs)

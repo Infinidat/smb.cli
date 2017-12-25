@@ -60,7 +60,6 @@ def exit_if_vol_not_mapped(volume):
     def _is_vol_mapped(volume_serial, timeout=3):
         from time import sleep
         from infi.execute import execute_assert_success
-        print "volume_serial: {}".format(volume_serial)
         for n in range(0, timeout):
             execute_assert_success(['powershell', '-c', 'Update-HostStorageCache'])
             try:
