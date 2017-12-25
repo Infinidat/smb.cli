@@ -2,9 +2,9 @@
 INFINIDAT SMB Cluster and exports manager
 
 Usage:
-    smbmgr fs create <size> --name=NAME [--mount=PATH] [--pool=POOL]
+    smbmgr fs create <size> --name=NAME [--pool=POOL]
     smbmgr fs delete --name=NAME [--yes]
-    smbmgr fs attach --name=NAME [--mount=PATH] [--yes] [--force]
+    smbmgr fs attach --name=NAME [--yes] [--force]
     smbmgr fs detach --name=NAME    [--yes]
     smbmgr fs query [--size_unit=UNIT]
     smbmgr config set <key=value>
@@ -12,7 +12,6 @@ Usage:
 
 Options:
     <size>                      desired volume size (examples: 10GB, 100MB, 1TB)
-    --mount=PATH                mount path to the volume. View/change default using "smbmgr config get/set"
     --pool=POOL_NAME            pool to provision/search volume on. View/change default using "smbmgr config get/set"
     --yes                       skip prompt on dangers operations
     --force                     Continue on errors (not recommended !). Only for "fs attach"
@@ -53,8 +52,6 @@ def _use_default_config_if_needed(arguments):
     config = config_get(silent=True)
     if not arguments['--pool']:
         arguments['--pool'] = config['PoolName']
-    if not arguments['--mount']:
-        arguments['--mount'] = config['MountRoot']
     return arguments
 
 def arguments_to_functions(arguments):
@@ -109,14 +106,14 @@ def run_config_set(arguments):
 
 def run_fs_create(arguments):
     from smb.cli.fs import fs_create
-    fs_create(arguments['--name'],arguments['--mount'], arguments['--pool'], arguments['<size>'])
+    fs_create(arguments['--name'], arguments['--pool'], arguments['<size>'])
 
 
 def run_fs_attach(arguments):
     from smb.cli.fs import fs_attach
     config = config_get(silent=True)
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
-    fs_attach(arguments['--name'], arguments['--mount'], arguments['--force'])
+    fs_attach(arguments['--name'], arguments['--force'])
 
 
 # Need more validations to all CLI commands

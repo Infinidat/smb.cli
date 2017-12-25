@@ -6,11 +6,12 @@ from smb.cli.config import config_get
 config = config_get(silent=True)
 
 class Fs(object):
-    def __init__(self, infinibox_vol_name, lun_number, winid, mountpoint, fs_size, used_size, num_snaps, num_shares):
+    def __init__(self, infinibox_vol_name, lun_number, winid, fs_size, used_size, num_snaps, num_shares):
+        from os import path
         self.infinibox_vol_name = infinibox_vol_name
         self.lun_number = lun_number
         self.winid = winid
-        self.mountpoint = mountpoint.strip()
+        self.mountpoint = path.realpath(path.join(config['MountRoot'], infinibox_vol_name)).strip()
         self.fs_size = fs_size
         self.used_size = used_size
         self.num_snaps = num_snaps
@@ -45,18 +46,11 @@ def instance_fs(volume, cluster):
     ''' receives an infinisdk volume object and create a usable fs instance
     '''
     # TODO: Get number of shares
-    # TODO: add also search for none default mountpoint
-    from os import path
     volume_name = volume.get_name()
     lun_number = cluster.get_lun(volume).get_lun()
-    defualt_mountpoint = path.realpath(path.join(config['MountRoot'], volume_name))
-    if _mountpoint_exist(defualt_mountpoint):
-        mountpoint = defualt_mountpoint
-    else:
-        mountpoint = ""
     win_id = _get_winid_by_serial(volume.get_serial())
     num_snaps = len(volume.get_snapshots().to_list())
-    return Fs(volume_name, lun_number, win_id, mountpoint, volume.get_size(), volume.get_used_size(),
+    return Fs(volume_name, lun_number, win_id, volume.get_size(), volume.get_used_size(),
               num_snaps, 0)
 
 
@@ -76,15 +70,13 @@ def _get_winid_by_serial(luid):
         return
 
 
-def _mountpoint_exist(mountpoint, create=False):
-    '''Check if mount point exist or not, if create=True and mountpoint doesn't exist, create it
+def _mountpoint_exist(mountpoint):
+    '''Check if mount point exist otherwise create it
     '''
     from os import path, mkdir
-    if not create:
-        return path.exists(mountpoint)
-    print "Creating mount path {}".format(mountpoint)
-    mkdir(mountpoint)
-    return True
+    if not path.exists(mountpoint):
+        print "Creating mount path {}".format(mountpoint)
+        mkdir(mountpoint)
 
 
 def _run_vol_to_cluster_scirpt(fs):
@@ -143,7 +135,7 @@ def unmap_vol_from_cluster_windows(volume_name):
     pass
 
 def unmap_vol_from_cluster_infinibox(volume_name):
-    sdk = InfiSdkObjects()
+    sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     cluster = ibox.host_clusters.choose(name=config['Cluster'])
     volume = ibox.volumes.choose(name=volume_name)
@@ -152,7 +144,7 @@ def unmap_vol_from_cluster_infinibox(volume_name):
 
 
 def map_vol_to_cluster(volume):
-    sdk = InfiSdkObjects()
+    sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     cluster = ibox.host_clusters.choose(name=config['Cluster'])
     try:
@@ -166,7 +158,7 @@ def map_vol_to_cluster(volume):
 
 
 def delete_volume_on_infinibox(volume_name):
-    sdk = InfiSdkObjects()
+    sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     volume = ibox.volumes.choose(name=volume_name)
     volume.delete()
@@ -174,7 +166,7 @@ def delete_volume_on_infinibox(volume_name):
 
 
 def create_volume_on_infinibox(volume_name, pool_name, size_str):
-    sdk = InfiSdkObjects()
+    sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     size = _validate_size(size_str)
     pool = _validate_pool(pool_name, ibox, size)
@@ -190,14 +182,13 @@ def create_volume_on_infinibox(volume_name, pool_name, size_str):
 def clean_fs(fs):
     import os
     unmap_vol_from_cluster_infinibox(fs.get_infinibox_vol_name())
-    if _mountpoint_exist(fs.get_mountpoint()):
-        os.rmdir(fs.get_mountpoint())
-        lib.print_yellow("Dirctory {} was deleted".format(fs.get_mountpoint()))
+    os.rmdir(fs.get_mountpoint())
+    lib.print_yellow("Dirctory {} was deleted".format(fs.get_mountpoint()))
     delete_volume_on_infinibox(fs.get_infinibox_vol_name())
 
 
 def _get_mapped_vols():
-    sdk = InfiSdkObjects()
+    sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     cluster = ibox.host_clusters.choose(name=config['Cluster'])
     mapped_vols = cluster.get_lun_to_volume_dict()
@@ -266,7 +257,7 @@ def fs_query(units):
     print_fs_query(_get_mapped_vols(), units)
 
 
-def fs_attach(volume_name, mountpoint, force=False):
+def fs_attach(volume_name, force=False):
     sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     volume = _validate_vol(ibox, vol_name=volume_name)
@@ -275,18 +266,15 @@ def fs_attach(volume_name, mountpoint, force=False):
     else:
         map_vol_to_cluster(volume)
     lib.exit_if_vol_not_mapped(volume)
-    # TODO: Handle mount point proeprly
-    if mountpoint is False:
-        mountpoint = path.realpath(path.join(config['MountRoot'], volume_name))
     fs = instance_fs(volume, sdk.get_cluster())
-    _mountpoint_exist(fs.get_mountpoint(), create=True)
-    _run_attach_vol_to_cluster_scirpt(existing_fs)
+    _mountpoint_exist(fs.get_mountpoint())
+    _run_attach_vol_to_cluster_scirpt(fs)
 
 
-def fs_create(volume_name, mountpoint, volume_pool, volume_size):
+def fs_create(volume_name, volume_pool, volume_size):
     volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size)
     try:
-        fs_attach(volume_name, mountpoint)
+        fs_attach(volume_name)
     except:
         e = sys.exc_info
         lib.print_red("Something went wrong. Rolling back operations...")
