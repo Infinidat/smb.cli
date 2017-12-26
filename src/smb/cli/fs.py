@@ -59,6 +59,8 @@ def _get_all_shares():
     '''
     # maybe should be replaced with infi.diskmanagement.MountManager()
     cmd_output = execute_assert_success(['powershell', '-c', 'Get-SmbShare', '-ScopeName', config['FSRoleName']]).get_stdout()
+
+
 def _get_winid_by_serial(luid):
     '''logical unit id (luid) is also the infinibox volume serial
     '''
@@ -79,10 +81,10 @@ def _mountpoint_exist(mountpoint):
         mkdir(mountpoint)
 
 
-def _run_vol_to_cluster_scirpt(fs):
+def _run_prep_vol_to_cluster_scirpt(fs):
     from smb import PROJECTROOT
     from os import path, pardir
-    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-cluster', 'src', 'prep_and_add_vol_to_cluster.ps1'))
+    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-cluster', 'src', 'prep_vol_to_cluster.ps1'))
     try:
         cmd = execute_assert_success(['powershell', '.', '"' + vol_to_cluster_script.replace('\\', '/') +
                                  '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
@@ -103,7 +105,6 @@ def _run_attach_vol_to_cluster_scirpt(fs):
         error = sys.exc_info()[1]
         lib.print_red("{} failed with error: {}".format(attach_vol_to_cluster_script, error))
         exit()
-
 
 
 def _validate_size(size_str):
@@ -162,10 +163,10 @@ def map_vol_to_cluster(volume):
         mapping = cluster.map_volume(volume)
     except:
         error = sys.exc_info()[1]
-        lib.print_red("Couldn't map vol {} to cluster {}! {!r}".format(volume.get_name(),
+        lib.print_red("Couldn't Map Volume {} to {}! {!r}".format(volume.get_name(),
                                                                        cluster.get_name(), str(error.message)))
         exit()
-    print "Volume {} is now mapped to {}".format(volume.get_name(), cluster.get_name())
+    print "Mapping {} to {}".format(volume.get_name(), cluster.get_name())
 
 
 def delete_volume_on_infinibox(volume_name):
@@ -182,7 +183,7 @@ def create_volume_on_infinibox(volume_name, pool_name, size_str):
     size = _validate_size(size_str)
     pool = _validate_pool(pool_name, ibox, size)
     try:
-        print "Creating volume {} in {} Pool".format(volume_name, pool_name)
+        print "Creating Volume {} at {}".format(volume_name, pool_name)
         return ibox.volumes.create(name=volume_name, pool=pool, size=size, provtype='THIN')
     except:
         error = sys.exc_info()[1]
@@ -286,8 +287,11 @@ def fs_attach(volume_name, force=False):
 def fs_create(volume_name, volume_pool, volume_size):
     sdk = lib.InfiSdkObjects()
     volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size)
+    map_vol_to_cluster(volume)
+    fs = instance_fs(volume, sdk.get_cluster())
+    _run_prep_vol_to_cluster_scirpt(fs)
     try:
-        fs_attach(volume_name)
+        fs_attach(volume_name, force=True)
     except:
         e = sys.exc_info
         lib.print_red("Something went wrong. Rolling back operations...")
