@@ -4,6 +4,7 @@ from smb.cli import lib
 from infi.execute import execute_assert_success, execute
 from smb.cli.config import config_get
 config = config_get(silent=True)
+MAX_ATTACHED_VOLUMES = 100  # maximum amount of simultaneously attached volumes
 
 class Fs(object):
     def __init__(self, infinibox_vol_name, lun_number, winid, fs_size, used_size, num_snaps, num_shares):
@@ -133,6 +134,13 @@ def _validate_pool(pool_name, ibox_sdk, size):
         exit()
     return pool
 
+def _validate_max_amount_of_volumes(lib_sdk):
+    from smb.cli.__version__ import __version__
+    cluster = lib_sdk.get_cluster()
+    if len(cluster.get_luns()) >= MAX_ATTACHED_VOLUMES:
+        message = "Version: {} Supports only up to {} simultaneously attached Volumes"
+        lib.print_yellow(message.format(__version__, MAX_ATTACHED_VOLUMES))
+        exit()
 
 def _validate_vol(ibox_sdk, vol_name):
     from infinisdk.core.type_binder import ObjectNotFound
@@ -272,6 +280,7 @@ def fs_query(units):
 def fs_attach(volume_name, force=False):
     sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
+    _validate_max_amount_of_volumes(sdk)
     volume = _validate_vol(ibox, vol_name=volume_name)
     if force and lib.is_volume_mapped_to_cluster(volume):
         pass
@@ -286,6 +295,7 @@ def fs_attach(volume_name, force=False):
 
 def fs_create(volume_name, volume_pool, volume_size):
     sdk = lib.InfiSdkObjects()
+    _validate_max_amount_of_volumes(sdk)
     volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size)
     map_vol_to_cluster(volume)
     fs = instance_fs(volume, sdk.get_cluster())
