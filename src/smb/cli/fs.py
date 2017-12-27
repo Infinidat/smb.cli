@@ -108,10 +108,13 @@ def _run_attach_vol_to_cluster_scirpt(fs):
         exit()
 
 
-def _validate_size(size_str):
+def _validate_size(size_str, roundup=False):
     import capacity
     try:
         size = capacity.from_string(size_str)
+        if roundup:
+            if (size / byte) / 512 != int((size / byte) / 512):
+                size = ((int((size / byte) / 512) + 1 ) * 512)
     except:
         lib.print_yellow("{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
                          "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ")
@@ -188,7 +191,7 @@ def delete_volume_on_infinibox(volume_name):
 def create_volume_on_infinibox(volume_name, pool_name, size_str):
     sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
-    size = _validate_size(size_str)
+    size = _validate_size(size_str, roundup=True)
     pool = _validate_pool(pool_name, ibox, size)
     try:
         print "Creating Volume {} at {}".format(volume_name, pool_name)
