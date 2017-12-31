@@ -43,23 +43,17 @@ class Fs(object):
         return self.num_shares
 
 
-def instance_fs(volume, cluster):
+def instance_fs(volume, cluster, win_id=None):
     ''' receives an infinisdk volume object and create a usable fs instance
     '''
     # TODO: Get number of shares
     volume_name = volume.get_name()
     lun_number = cluster.get_lun(volume).get_lun()
-    win_id = _get_winid_by_serial(volume.get_serial())
+    if win_id is None:
+        win_id = _get_winid_by_serial(volume.get_serial())
     num_snaps = len(volume.get_snapshots().to_list())
     return Fs(volume_name, lun_number, win_id, volume.get_size(), volume.get_used_size(),
               num_snaps, 0)
-
-
-def _get_all_shares():
-    '''read from the config the default role and return a dict with all of it shares
-    '''
-    # maybe should be replaced with infi.diskmanagement.MountManager()
-    cmd_output = execute_assert_success(['powershell', '-c', 'Get-SmbShare', '-ScopeName', config['FSRoleName']]).get_stdout()
 
 
 def _get_winid_by_serial(luid):
@@ -72,6 +66,17 @@ def _get_winid_by_serial(luid):
     except:
         return
 
+def _winid_serial_table_to_dict():
+    import re
+    disk_list = []
+    cmd_output = execute(['powershell', '-c', 'Get-Disk', '|', 'Select-Object', 'Number,SerialNumber']).get_stdout()
+    cmd_output = cmd_output.replace("Number SerialNumber","").replace("-","")
+    regex = re.compile(r'(?P<winid>\d+)\ (?P<serial>\w+)')
+    for line in cmd_output.splitlines():
+        result = re.search(regex, line)
+        if result:
+            disk_list.append(result.groupdict())
+    return disk_list
 
 def _mountpoint_exist(mountpoint):
     '''Check if mount point exist otherwise create it
@@ -246,7 +251,7 @@ def _print_format(val, val_type):
     return _trim_or_fill(val, val_type)
 
 
-def print_fs_query(mapped_vols, print_units):
+def print_fs_query(mapped_vols, print_units, serial_list):
     if len(mapped_vols) > 2:
         ibox = mapped_vols[0].get_system()
     else:
@@ -258,7 +263,14 @@ def print_fs_query(mapped_vols, print_units):
     for volume in mapped_vols:
         if volume.get_name() in ["mountpoint", "witness"]:
             continue
-        fs = instance_fs(volume, cluster)
+        volume_serial = volume.get_serial()
+        for disk in serial_list:
+            if disk['serial'] == volume_serial:
+                win_id = disk['winid']
+                break
+        if not win_id:
+            win_id = None
+        fs = instance_fs(volume, cluster, win_id)
         if print_units:
             fs_size = str((fs.get_fs_size() / print_units)) + " " + str(print_units)[2:]
             used_size = str((fs.get_used_size() / print_units)) + " " + str(print_units)[2:]
@@ -277,7 +289,8 @@ def print_fs_query(mapped_vols, print_units):
 def fs_query(units):
     if units:
         units = _validate_size(units)
-    print_fs_query(_get_mapped_vols(), units)
+    serial_list = _winid_serial_table_to_dict()
+    print_fs_query(_get_mapped_vols(), units, serial_list)
 
 
 def fs_attach(volume_name, force=False):
