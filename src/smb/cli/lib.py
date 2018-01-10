@@ -3,6 +3,9 @@ import infinisdk
 import colorama
 from infi.credentials_store import CLICredentialsStore
 from smb.cli.config import config_get
+from infi.execute import execute_assert_success, execute
+from smb import PROJECTROOT
+
 
 if sys.version_info > (3, 0):
     _input = input
@@ -34,7 +37,6 @@ class PreChecks(object):
         self.am_I_master()
 
     def am_I_master(self):
-        from infi.execute import execute_assert_success
         from platform import node
         config = config_get(silent=True)
         cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
@@ -46,7 +48,6 @@ class PreChecks(object):
             exit()
 
     def is_cluster_online(self):
-        from infi.execute import execute_assert_success
         config = config_get(silent=True)
         cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
                                 '-ExpandProperty', 'state'])
@@ -59,7 +60,6 @@ def exit_if_vol_not_mapped(volume):
     ''' receives an infinisdk volume type and checks if mapped'''
     def _is_vol_mapped(volume_serial, timeout=3):
         from time import sleep
-        from infi.execute import execute_assert_success
         for n in range(0, timeout):
             execute_assert_success(['powershell', '-c', 'Update-HostStorageCache'])
             try:
@@ -75,8 +75,6 @@ def exit_if_vol_not_mapped(volume):
         If it doesn't we'll rescan
         '''
         from os import path, pardir
-        from infi.execute import execute
-        from smb import PROJECTROOT
         HPT_BIN_FILE = 'infinihost.exe'
         # to do need to think if we'd like to scan on remote and verify
         hpt_bin = path.realpath(path.join(PROJECTROOT, pardir, 'Host Power Tools', 'bin', HPT_BIN_FILE))
@@ -87,6 +85,38 @@ def exit_if_vol_not_mapped(volume):
         if not _is_vol_mapped(volume.get_serial()):
             print_red("Windows couldn't gain access to volume {} which was just mapped".format(volume.get_name()))
             exit()
+
+
+def _validate_size(size_str, roundup=False):
+    from capacity import byte
+    import capacity
+    try:
+        size = capacity.from_string(size_str)
+        if roundup:
+            if (size / byte) / 512 != int((size / byte) / 512):
+                size = ((int((size / byte) / 512) + 1 ) * 512)
+    except:
+        print_yellow("{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
+                         "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ")
+        exit()
+    return size
+
+
+def is_disk_in_cluster(disk_win_id):
+    from os import path, pardir
+    is_disk_in_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-Cluster', 'src', 'DiskToClusterDiskResource.ps1'))
+    output = execute(['powershell', '-c', '$Disk =' 'Get-Disk', '-Number', str(disk_win_id), ';',
+                      '.', pad_text(is_disk_in_cluster_script), '-Disk', '$Disk'])
+    import pdb ; pdb.set_trace()
+    if 'MSCluster' in output.get_stdout():
+        return True
+    else:
+        return False
+
+
+def pad_text(path):
+    return "{}{}{}".format("'", path, "'")
+
 
 def is_volume_mapped_to_cluster(volume):
     config = config_get(silent=True)
@@ -115,6 +145,11 @@ def _init_colorama():
     global output_stream
     if 'TERM' not in os.environ:
         init()
+
+# def run_assert(cmd):
+#
+#
+# def run(cmd):
 
 
 def print_green(text):

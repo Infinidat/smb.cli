@@ -8,11 +8,10 @@ MAX_ATTACHED_VOLUMES = 100  # maximum amount of simultaneously attached volumes
 
 class Fs(object):
     def __init__(self, infinibox_vol_name, lun_number, winid, fs_size, used_size, num_snaps, num_shares):
-        from os import path
         self.infinibox_vol_name = infinibox_vol_name
         self.lun_number = lun_number
         self.winid = winid
-        self.mountpoint = path.realpath(path.join(config['MountRoot'], infinibox_vol_name)).strip()
+        self.mountpoint = _get_defualt_mountpoint(infinibox_vol_name)
         self.fs_size = fs_size
         self.used_size = used_size
         self.num_snaps = num_snaps
@@ -54,6 +53,11 @@ def instance_fs(volume, cluster, win_id=None):
     num_snaps = len(volume.get_snapshots().to_list())
     return Fs(volume_name, lun_number, win_id, volume.get_size(), volume.get_used_size(),
               num_snaps, 0)
+
+
+def _get_defualt_mountpoint(vol_name):
+    from os import path
+    return path.normcase(path.join(config['MountRoot'], vol_name).strip())
 
 
 def _get_winid_by_serial(luid):
@@ -113,20 +117,6 @@ def _run_attach_vol_to_cluster_scirpt(fs):
         exit()
 
 
-def _validate_size(size_str, roundup=False):
-    import capacity
-    try:
-        size = capacity.from_string(size_str)
-        if roundup:
-            if (size / byte) / 512 != int((size / byte) / 512):
-                size = ((int((size / byte) / 512) + 1 ) * 512)
-    except:
-        lib.print_yellow("{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
-                         "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ")
-        exit()
-    return size
-
-
 def _validate_pool(pool_name, ibox_sdk, size):
     from infinisdk.core.type_binder import ObjectNotFound
     from capacity import GiB
@@ -142,6 +132,7 @@ def _validate_pool(pool_name, ibox_sdk, size):
         exit()
     return pool
 
+
 def _validate_max_amount_of_volumes(lib_sdk):
     from smb.cli.__version__ import __version__
     cluster = lib_sdk.get_cluster()
@@ -149,6 +140,7 @@ def _validate_max_amount_of_volumes(lib_sdk):
         message = "Version: {} Supports only up to {} simultaneously attached Volumes"
         lib.print_yellow(message.format(__version__, MAX_ATTACHED_VOLUMES))
         exit()
+
 
 def _validate_vol(ibox_sdk, vol_name):
     from infinisdk.core.type_binder import ObjectNotFound
@@ -161,6 +153,7 @@ def _validate_vol(ibox_sdk, vol_name):
 
 def unmap_vol_from_cluster_windows(volume_name):
     pass
+
 
 def unmap_vol_from_cluster_infinibox(volume_name):
     sdk = lib.InfiSdkObjects()
@@ -194,6 +187,7 @@ def delete_volume_on_infinibox(volume_name):
 
 
 def create_volume_on_infinibox(volume_name, pool_name, size_str):
+    from smb.cli.lib import _validate_size
     sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     size = _validate_size(size_str, roundup=True)
@@ -211,7 +205,7 @@ def clean_fs(fs):
     import os
     unmap_vol_from_cluster_infinibox(fs.get_infinibox_vol_name())
     os.rmdir(fs.get_mountpoint())
-    lib.print_yellow("Dirctory {} was deleted".format(fs.get_mountpoint()))
+    lib.print_yellow("Directory {} was deleted".format(fs.get_mountpoint()))
     delete_volume_on_infinibox(fs.get_infinibox_vol_name())
 
 
@@ -285,8 +279,20 @@ def print_fs_query(mapped_vols, print_units, serial_list):
                 _print_format(str(fs.get_num_shares()), "shares")]
         print " ".join(line)
 
+def _get_all_fs():
+    # The most usable function here !
+    serial_list = _winid_serial_table_to_dict()
+    mapped_vols = _get_mapped_vols()
+    for disk in serial_list:
+        for ibox_vol in mapped_vols:
+            if disk['serial'] == ibox_vol.get_serial():
+                disk['name'] = ibox_vol.get_name()
+                disk['mount'] = _get_defualt_mountpoint(disk['name'])
+    return [ vol for vol in serial_list if vol.has_key('mount')]
+
 
 def fs_query(units):
+    from smb.cli.lib import _validate_size
     if units:
         units = _validate_size(units)
     serial_list = _winid_serial_table_to_dict()
