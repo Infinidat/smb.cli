@@ -17,8 +17,18 @@ class SMBCrdentialsStore(CLICredentialsStore):
     def _get_file_folder(self):
         return ".smb.credentials_store"
 
-    def authenticate(self, key, credentilas):
-        return True
+    def authenticate(self, key, credentials):
+        import infinisdk
+        from infinisdk.core.exceptions import APICommandFailed
+        if credentials is None:
+            return False
+        config = config_get(silent=True)
+        try:
+            ibox = infinisdk.InfiniBox(config['IboxAddress'], auth=(credentials.get_username(), credentials.get_password()))
+            ibox.login()
+            return True
+        except APICommandFailed:
+            return False
 
     def ask_credentials_prompt(self, key):
         print 'Connecting to InfiniBox ' + str(key)
