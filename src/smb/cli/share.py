@@ -1,7 +1,6 @@
-import sys
+from capacity import *
 from smb.cli import lib
 from smb.cli.execute_cmd import run
-from infi.execute import execute_assert_success
 from smb.cli.lib import InfiSdkObjects
 config = InfiSdkObjects().get_local_config()
 
@@ -12,38 +11,47 @@ config = InfiSdkObjects().get_local_config()
     Usage = int
     path = path to share in lowercase (normcase)
     size = int
+    freeonfs
 '''
 
-def print_share_query():
-    header = 'FSName       ShareName    Path                   Limited Size '
-
-
 def _print_format(val, val_type):
-    def _trim(val, val_type):
-        if "name" in val_type:
-            return val[0:13] + "..."
-        if val_type == "path":
-            return val[0:20] + "..."
+    def _trim_or_fill(val, lenght):
+        if len(val) == lenght:
+            return val
+        if len(val) > lenght:
+            return val[0:(lenght - 3)] + "..."
+        if len(val) < lenght:
+            return val.ljust(lenght - 1)
 
-    def _fill(val, val_type):
-        if val_type in "name":
-            return val.ljust(16)
-        if val_type in ["size", "used_size"]:
-            return val.ljust(12)
-        if val_type in ["snaps", "shares"]:
-            return val.ljust(7)
-
-    def _trim_or_fill(val, val_type):
+    def _val_to_print(val, val_type):
         if val_type in ["fsname", "sharename"]:
-            if len(val) == 16:
-                return (val)
-            if len(val) > 16:
-                return _trim(val)
-            return _fill(val, val_type)
-        if val_type in ["size", "used_size"]:
-            return _fill(val, val_type)
+            lenght = 15
+            return _trim_or_fill(val, lenght)
+        if val_type == "path":
+            lenght = 25
+            return _trim_or_fill(val, lenght)
+        else:
+            lenght = 12
+            return _trim_or_fill(val, lenght)
+    return _val_to_print(str(val), val_type)
 
-    return _trim_or_fill(val, val_type)
+def print_share_query(shares):
+    header = 'FSName         ShareName      Path                     Quota       UsedQuota   FilesystemFree'
+    print header
+    for share in shares:
+        if share['Disabled'] == "True":
+            quota = "-"
+            usedquota = "-"
+        else:
+            quota = share['size']
+            usedquota = share['Usage']
+        line = [_print_format(share['fsname'], 'fsname'),
+                _print_format(share['share_name'], 'sharename'),
+                _print_format(share['path'], 'path'),
+                _print_format(quota, 'quota'),
+                _print_format(usedquota, 'usedQuota'),
+                _print_format(share['freeonfs'], 'filesystemfree')]
+        print " ".join(line)
 
 
 def _run_share_create(share_name, share_path):
@@ -99,7 +107,7 @@ def _get_share_limit_to_dict():
     from os import path
     shares_quota = []
     output = _run_share_quota_get()
-    output = output.replace('class CimInstance','')
+    output = output.replace('class CimInstance', '')
     output = output.replace('\r', '').replace('{', '###').replace('}', '###')
     for share in output.split('###'):
         share_dict = {}
@@ -112,6 +120,8 @@ def _get_share_limit_to_dict():
             shares_quota.append(share_dict)
     for share in shares_quota:
         share['path'] = path.normcase(path.realpath(share['Path']))
+        share['Usage'] = (int(share['Usage']) / 1024) * KiB
+        share['size'] = (int(share['size']) / 1024) * KiB
     return shares_quota
 
 
@@ -137,11 +147,12 @@ def _share_query_to_dict():
     return shares
 
 def _merge_share_dicts(d1, d2):
-    ''' Marge 2 share dicts and remove duplicate value: path
+    ''' Marge 2 share dicts and remove duplicate value: Path if exist
     '''
     d = d1.copy()
     d.update(d2)
-    d.pop('Path')
+    if 'Path' in d:
+        d.pop('Path')
     return d
 
 def get_all_shares_data():
@@ -156,12 +167,26 @@ def get_all_shares_data():
     return shares_list
 
 
-def share_query(arguments):
-    data = get_all_shares_data()
-    for a in data:
-        for key, val in a.items():
-            print key, val
+def join_fs_and_share(filesystems, shares):
+    share_list = []
+    for filesystem in filesystems:
+        for share in shares:
+            if filesystem['mount'] in share['path']:
+                share_list.append(_merge_share_dicts(filesystem, share))
+    return share_list
 
+
+def share_query(arguments):
+    from smb.cli.fs import _get_all_fs
+    shares_data = get_all_shares_data()
+    filesystems_data = _get_all_fs()
+    shares = join_fs_and_share(filesystems_data, shares_data)
+    for share in shares:
+        share['freeonfs'] = lib.get_path_free_size(share['path'])['avail'] * KiB
+    if len(shares) == 0:
+        print "No Share Are Defined"
+        exit()
+    print_share_query(shares)
 
 def _share_create_prechecks(share_name, share_path):
     from os import path
@@ -185,7 +210,7 @@ def _share_create_prechecks(share_name, share_path):
             exit()
     filesystems = _get_all_fs()
     for filesystem in filesystems:
-        if filesystem['mount'] in full_path: # need to fix
+        if filesystem['mount'] in full_path:
             vaild_fs = True
             if lib.is_disk_in_cluster(filesystem['winid']) is False:
                 lib.print_yellow("{} isn't part of the SMB Cluster".format(full_path))
@@ -245,6 +270,7 @@ def share_create(share_name, share_path, size_str):
 
 
 def share_limit(share_name, size):
+    size = lib._validate_size(size_str, roundup=True)
     _share_limit_prechecks_and_set(share_name, size)
     lib.print_green("{} limited to {}".format(share_name, size))
 
@@ -267,4 +293,3 @@ def share_delete(share_name):
     _run_share_limit_delete(share['path'])
     _run_share_delete(share_name)
     lib.print_green("{} Deleted".format(share_name))
-

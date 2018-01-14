@@ -1,6 +1,7 @@
 import sys
 import infinisdk
 import colorama
+from os import path, pardir
 from infi.credentials_store import CLICredentialsStore
 from smb.cli.config import config_get
 from infi.execute import execute_assert_success, execute
@@ -84,7 +85,6 @@ def exit_if_vol_not_mapped(volume):
         ''' From what I saw on 90% of the times the volume just apear on both nodes
         If it doesn't we'll rescan
         '''
-        from os import path, pardir
         HPT_BIN_FILE = 'infinihost.exe'
         # to do need to think if we'd like to scan on remote and verify
         hpt_bin = path.realpath(path.join(PROJECTROOT, pardir, 'Host Power Tools', 'bin', HPT_BIN_FILE))
@@ -104,20 +104,34 @@ def _validate_size(size_str, roundup=False):
         size = capacity.from_string(size_str)
         if roundup:
             if (size / byte) / 512 != int((size / byte) / 512):
-                size = ((int((size / byte) / 512) + 1 ) * 512)
+                size = ((int((size / byte) / 512) + 1) * 512)
     except:
         print_yellow("{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
                          "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ")
         exit()
     return size
 
+def get_path_free_size(full_path):
+    from smb.cli.execute_cmd import run
+    if not path.exists(full_path):
+        return
+    cmd = ['powershell', '-c', 'df', '-B K', full_path, '--output=size,used,avail']
+    error_prefix = "error df on {}".format(full_path)
+    df_lines = run(cmd, error_prefix).splitlines()
+    if len(df_lines) != 2:
+        print_red("Something not right")
+        exit()
+    sizes = df_lines[1].split('K')
+    size = {}
+    size['size'] = int(sizes[0])
+    size['used'] = int(sizes[1])
+    size['avail'] = int(sizes[2])
+    return size
 
 def is_disk_in_cluster(disk_win_id):
-    from os import path, pardir
     is_disk_in_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-Cluster', 'src', 'DiskToClusterDiskResource.ps1'))
     output = execute(['powershell', '-c', '$Disk =' 'Get-Disk', '-Number', str(disk_win_id), ';',
                       '.', pad_text(is_disk_in_cluster_script), '-Disk', '$Disk'])
-    import pdb ; pdb.set_trace()
     if 'MSCluster' in output.get_stdout():
         return True
     else:
@@ -156,11 +170,6 @@ def _init_colorama():
     if 'TERM' not in os.environ:
         init()
 
-# def run_assert(cmd):
-#
-#
-# def run(cmd):
-
 
 def print_green(text):
     print colorama.Fore.GREEN + text + colorama.Fore.RESET
@@ -182,6 +191,7 @@ def approve_danger_op(message, arguments):
         if not proceed:
             exit()
     return
+
 
 class InfiSdkObjects(object):
     def __init__(self):
