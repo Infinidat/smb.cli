@@ -30,10 +30,10 @@ class Fs(object):
         return self.infinibox_vol_name
 
     def get_fs_size(self):
-        return self.fs_size
+        return self.fs_sizes['size'] * KiB
 
     def get_used_size(self):
-        return self.used_size
+        return self.fs_sizes['used'] * KiB
 
     def get_num_snaps(self):
         return self.num_snaps
@@ -51,8 +51,7 @@ def instance_fs(volume, cluster, win_id=None):
     if win_id is None:
         win_id = _get_winid_by_serial(volume.get_serial())
     num_snaps = len(volume.get_snapshots().to_list())
-    return Fs(volume_name, lun_number, win_id, volume.get_size(), volume.get_used_size(),
-              num_snaps, 0)
+    return Fs(volume_name, lun_number, win_id, num_snaps, 0)
 
 
 def _get_defualt_mountpoint(vol_name):
@@ -74,7 +73,7 @@ def _winid_serial_table_to_dict():
     import re
     disk_list = []
     cmd_output = execute(['powershell', '-c', 'Get-Disk', '|', 'Select-Object', 'Number,SerialNumber']).get_stdout()
-    cmd_output = cmd_output.replace("Number SerialNumber","").replace("-","")
+    cmd_output = cmd_output.replace("Number SerialNumber", "").replace("-", "")
     regex = re.compile(r'(?P<winid>\d+)\ (?P<serial>\w+)')
     for line in cmd_output.splitlines():
         result = re.search(regex, line)
@@ -186,11 +185,9 @@ def delete_volume_on_infinibox(volume_name):
     lib.print_yellow("Volume {} was deleted".format(volume_name))
 
 
-def create_volume_on_infinibox(volume_name, pool_name, size_str):
-    from smb.cli.lib import _validate_size
+def create_volume_on_infinibox(volume_name, pool_name, size):
     sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
-    size = _validate_size(size_str, roundup=True)
     pool = _validate_pool(pool_name, ibox, size)
     try:
         print "Creating Volume {} at {}".format(volume_name, pool_name)

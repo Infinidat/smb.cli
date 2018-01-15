@@ -14,6 +14,7 @@ def powershell_config_to_dict(filename):
             config[key] = val.replace('"', '')
         return config
 
+
 def change_powershell_config(key, value):
     import fileinput
     from os import path, pardir
@@ -31,6 +32,7 @@ def change_powershell_config(key, value):
         else:
             print line,
     fileinput.close()
+
 
 def read_config(filename):
     from smb.cli.lib import print_red

@@ -5,22 +5,26 @@ Usage:
     smbmgr fs create <size> --name=FSNAME [--pool=POOL_NAME]
     smbmgr fs delete --name=FSNAME [--yes]
     smbmgr fs attach --name=FSNAME [--yes] [--force]
-    smbmgr fs detach --name=FSNAME    [--yes]
+    smbmgr fs detach --name=FSNAME [--yes]
     smbmgr fs query [--size_unit=UNIT]
     smbmgr share create --name=SHARENAME --path=PATH [--size=SIZE]
-    smbmgr share query
-    smbmgr share limit <size> --name=SHARENAME [--yes]
-    smbmgr share unlimit --name=SHARENAME
     smbmgr share delete --name=SHARENAME [--yes]
+    smbmgr share resize <size> --name=SHARENAME [--yes]
+    smbmgr share query
     smbmgr config set <key=value>
     smbmgr config get
 
 Options:
-    size                        desired size in capacity units (examples: 10GB, 100MB, 1TB)
-    --pool=POOL_NAME            pool to provision/search volume on. View/change default using "smbmgr config get/set"
+    size                        Desired size in capacity units (examples: 10GB, 100MB, 1TB)
+    --pool=POOL_NAME            Pool to provision/search vol on. Use "smbmgr config get/set" to View/Modify
     --size_unit=UNIT            Show sizes in specific format. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
     --force                     Continue on errors (not recommended !). Only for "fs attach"
-    --yes                       skip prompt on dangers operations
+    --yes                       Skip confirmation on dangers operations
+
+Note:
+    For removing share quota limit use 0 as size
+    e.g.
+    smbmgr share resize 0 --name=my_smb_share
 
 {privileges_text}
 """
@@ -80,10 +84,8 @@ def arguments_to_functions(arguments):
             run_share_create(arguments)
         if arguments['query']:
             run_share_query(arguments)
-        if arguments['limit']:
-            run_share_limit(arguments)
-        if arguments['unlimit']:
-            run_share_unlimit(arguments)
+        if arguments['resize']:
+            run_share_resize(arguments)
         if arguments['delete']:
             run_share_delete(arguments)
     if arguments['config']:
@@ -100,7 +102,8 @@ def run_fs_query(arguments):
 
 def run_fs_create(arguments):
     from smb.cli.fs import fs_create
-    fs_create(arguments['--name'], arguments['--pool'], arguments['<size>'])
+    size = lib._validate_size(arguments['<size>'])
+    fs_create(arguments['--name'], arguments['--pool'], size)
 
 
 def run_fs_attach(arguments):
@@ -116,17 +119,16 @@ def run_share_query(arguments):
 
 def run_share_create(arguments):
     from smb.cli.share import share_create
-    share_create(arguments['--name'], arguments['--path'], arguments['--size'])
+    size = lib._validate_size(arguments['--size'])
+    share_create(arguments['--name'], arguments['--path'], size)
 
 
-def run_share_limit(arguments):
-    from smb.cli.share import share_limit
+def run_share_resize(arguments):
+    from smb.cli.share import share_limit, share_unlimit
     lib.approve_danger_op("Size limiting to share {}".format(arguments['--name']), arguments)
-    share_limit(arguments['--name'], arguments['<size>'])
-
-
-def run_share_unlimit(arguments):
-    from smb.cli.share import share_unlimit
+    size = lib._validate_size(arguments['<size>'])
+    if size != 0:
+        share_limit(arguments['--name'], size)
     share_unlimit(arguments['--name'])
 
 
