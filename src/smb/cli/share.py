@@ -1,10 +1,11 @@
 from capacity import *
-from smb.cli import lib
-from smb.cli.execute_cmd import run
+from smb.cli import lib, ps_cmd
 from smb.cli.lib import InfiSdkObjects
 config = InfiSdkObjects().get_local_config()
 
-''' Share objects and values returned from get_all_shares_data:
+
+class Share(object):
+    ''' Share objects and values returned from powershell:
     Disabled = "True" / "False" as strings
     share_name = string
     Softlimit = int
@@ -13,7 +14,6 @@ config = InfiSdkObjects().get_local_config()
     size = int
     freeonfs
 '''
-class Share(object):
     def __init__(self, sharename=None, sharepath=None, disabled=None, usage=None, size=None, freeonfs=None, fs=None):
         self.name = sharename
         self.path = sharepath
@@ -66,7 +66,6 @@ class Share(object):
             return
 
 
-
 def _print_format(val, val_type):
     def _trim_or_fill(val, lenght):
         if len(val) == lenght:
@@ -88,6 +87,7 @@ def _print_format(val, val_type):
             return _trim_or_fill(val, lenght)
     return _val_to_print(str(val), val_type)
 
+
 def print_share_query(shares):
     header = 'FSName         ShareName      Path                     Quota       UsedQuota   FilesystemFree'
     print header
@@ -98,7 +98,7 @@ def print_share_query(shares):
         else:
             quota = share.get_size()
             usedquota = share.get_usage()
-        if None in [ quota, share.get_free_space(), usedquota]:
+        if None in [quota, share.get_free_space(), usedquota]:
             fsname = "**INVALID**"
         else:
             fsname = share.fs['fsname']
@@ -111,69 +111,11 @@ def print_share_query(shares):
         print " ".join(line)
 
 
-def _run_share_create(share_name, share_path):
-    cmd = ['powershell', '-c', 'New-SmbShare', '-Name', lib.pad_text(share_name),
-           '-Path', lib.pad_text(share_path), '-ScopeName', config['FSRoleName'],
-           '-ContinuouslyAvailable:$true', '-CachingMode', 'None']
-    error_prefix = "New-SmbShare failed with error:"
-    run(cmd, error_prefix)
-
-
-def _run_share_delete(share_name):
-    cmd = ['powershell', '-c', 'Remove-SmbShare', '-Name', lib.pad_text(share_name),
-                                '-ScopeName', config['FSRoleName'], '-Confirm:$False']
-    error_prefix = "Remove-SmbShare failed with error:"
-    run(cmd, error_prefix)
-
-
-def _run_share_query():
-    cmd = ['powershell', '-c', 'Get-SmbShare', '-ScopeName', config['FSRoleName'],
-           '|', 'Format-Custom', 'Name, Path']
-    error_prefix = "Get-SmbShare failed with error:"
-    return run(cmd, error_prefix)
-
-
-def _run_share_quota_get():
-    cmd = ['powershell', '-c', 'Get-FSRMQuota', '|', 'Select-Object',
-           'Path, Disabled, size, Usage, Softlimit', '|', 'Format-Custom']
-    error_prefix = "Get-SmbShare failed with error:"
-    return run(cmd, error_prefix)
-
-
-def _run_create_share_limit_default(share_path):
-    # This can be always set over and over from any state
-    cmd = ['powershell', '-c', 'New-FSRMQuota', '-Path', lib.pad_text(share_path), '-Size 1KB', '-Disabled:$True']
-    error_prefix = "New-FSRMQuota failed with error:"
-    run(cmd, error_prefix)
-
-
-def _run_share_limit_set_default(share_path):
-    # This can be always set over and over from any state
-    cmd = ['powershell', '-c', 'Set-FSRMQuota', '-Path', lib.pad_text(share_path), '-Size 1KB', '-Disabled:$True']
-    error_prefix = "New-FSRMQuota failed with error:"
-    run(cmd, error_prefix)
-
-
-def _run_share_limit_set(share_path, size):
-    # Size differnces between capacity and windows ( in Win KB is KiB)
-    size = str(( size / byte ) / 1024 ) + "KB"
-    cmd = ['powershell', '-c', 'Set-FSRMQuota', '-Path', lib.pad_text(share_path), '-Size',
-           size, '-Disabled:$False']
-    error_prefix = "Set-FSRMQuota failed with error:"
-    run(cmd, error_prefix)
-
-
-def _run_share_limit_delete(share_path):
-    # This can be always set over and over from any state
-    cmd = ['powershell', '-c', 'Remove-FSRMQuota', '-Path', lib.pad_text(share_path), '-Confirm:$False']
-    error_prefix = "Remove-FSRMQuota failed with error:"
-
-
 def _get_share_limit_to_dict():
     import re
     from os import path
     shares_quota = []
-    output = _run_share_quota_get()
+    output = ps_cmd._run_share_quota_get()
     output = output.replace('class CimInstance', '')
     output = output.replace('\r', '').replace('{', '###').replace('}', '###')
     for share in output.split('###'):
@@ -197,7 +139,7 @@ def _share_query_to_share_instance():
     import re
     from os import path
     shares = []
-    output = _run_share_query()
+    output = ps_cmd._run_share_query()
     output = output.replace('class CimInstance#ROOT/Microsoft/Windows/SMB/MSFT_SmbShare', '')
     output = output.replace("\r", "").replace('{', "###").replace('}', "###")
     share_list = output.split("###")
@@ -291,7 +233,7 @@ def _share_limit_prechecks_and_set(share_name, size):
     share = find_share_from_list_of_shares(shares, share_name=share_name)
     if share.is_limited():
         print "{} is Already Size Limited, Changing Size to {}".format(share_name, size)
-        _run_share_limit_set(share.get_path(), size)
+        ps_cmd._run_share_limit_set(share.get_path(), size)
         exit()
     if share.get_path() in shares_paths:
         for s in shares:
@@ -300,7 +242,7 @@ def _share_limit_prechecks_and_set(share_name, size):
                     lib.print_yellow("Recursive Size Limit is NOT Supported in {}".format(__version__))
                     lib.print_yellow("New Limit {} Conflicts with {}".format(share.get_path(), s.get_path()))
                     exit()
-    _run_share_limit_set(share.get_path(), size)
+    ps_cmd._run_share_limit_set(share.get_path(), size)
 
 
 def share_query(arguments):
@@ -318,9 +260,9 @@ def share_create(share_name, share_path, size):
         # Fix Dir path ends with \ e.g. "c:\dir\" didn't work. \" removed last "
         share_path = share_path[0:-1]
     _share_create_prechecks(share_name, share_path)
-    _run_share_create(share_name, share_path)
+    ps_cmd._run_share_create(share_name, share_path)
     lib.print_green("'{}' Share Created".format(share_name))
-    _run_create_share_limit_default(share_path)
+    ps_cmd._run_create_share_limit_default(share_path)
     if size == 0:
         exit()
     share_limit(share_path, size)
@@ -337,7 +279,7 @@ def share_unlimit(share_name):
     if share.is_limited() is False:
         lib.print_yellow("{} doesn't have a limit on it.".format(share['share_name']))
         exit()
-    _run_share_limit_set_default(share.get_path())
+    ps_cmd._run_share_limit_set_default(share.get_path())
     lib.print_green("{} size limit removed".format(share.get_name()))
 
 
@@ -346,6 +288,6 @@ def share_delete(share_name):
     share = find_share_from_list_of_shares(shares, share_name)
     if share is None:
         lib.print_yellow("{} Doesn't exist. Can't delete it... ".format(share_name))
-    _run_share_limit_delete(share.get_path())
-    _run_share_delete(share_name)
+    ps_cmd._run_share_limit_delete(share.get_path())
+    ps_cmd._run_share_delete(share_name)
     lib.print_green("{} Deleted".format(share_name))

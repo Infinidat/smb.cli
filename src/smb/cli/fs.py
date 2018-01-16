@@ -1,7 +1,7 @@
 import sys
 from capacity import *
-from smb.cli import lib
-from infi.execute import execute_assert_success, execute
+from smb.cli import lib, ps_cmd
+from infi.execute import execute
 from smb.cli.config import config_get
 config = config_get(silent=True)
 MAX_ATTACHED_VOLUMES = 100  # maximum amount of simultaneously attached volumes
@@ -43,7 +43,7 @@ def instance_fs(volume, cluster, win_id=None):
     volume_name = volume.get_name()
     lun_number = cluster.get_lun(volume).get_lun()
     if win_id is None:
-        win_id = _get_winid_by_serial(volume.get_serial())
+        win_id = ps_cmd._run_get_winid_by_serial(volume.get_serial())
     num_snaps = len(volume.get_snapshots().to_list())
     return Fs(volume_name, lun_number, win_id, num_snaps)
 
@@ -52,16 +52,6 @@ def _get_default_mountpoint(vol_name):
     from os import path
     return path.normcase(path.join(config['MountRoot'], vol_name).strip())
 
-
-def _get_winid_by_serial(luid):
-    '''logical unit id (luid) is also the infinibox volume serial
-    '''
-    cmd_output = execute(['powershell', '-c', 'Get-Disk', '-SerialNumber',
-                          str(luid), '|', 'Select-Object -ExpandProperty number']).get_stdout()
-    try:
-        return int(cmd_output)
-    except:
-        return
 
 def _winid_serial_table_to_dict():
     import re
@@ -82,32 +72,6 @@ def _mountpoint_exist(mountpoint):
     if not path.exists(mountpoint):
         print "Creating mount path {}".format(mountpoint)
         mkdir(mountpoint)
-
-
-def _run_prep_vol_to_cluster_scirpt(fs):
-    from smb import PROJECTROOT
-    from os import path, pardir
-    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-cluster', 'src', 'prep_vol_to_cluster.ps1'))
-    try:
-        cmd = execute_assert_success(['powershell', '.', '"' + vol_to_cluster_script.replace('\\', '/') +
-                                 '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
-    except:
-        error = sys.exc_info()[1]
-        lib.print_red("{} failed with error: {}".format(vol_to_cluster_script, error))
-        exit()
-
-
-def _run_attach_vol_to_cluster_scirpt(fs):
-    from smb import PROJECTROOT
-    from os import path, pardir
-    attach_vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-cluster', 'src', 'add_vol_to_cluster.ps1'))
-    try:
-        cmd = execute_assert_success(['powershell', '.', '"' + attach_vol_to_cluster_script.replace('\\', '/') +
-                                 '"' + " -DiskNumber {}".format(fs.get_winid())])
-    except:
-        error = sys.exc_info()[1]
-        lib.print_red("{} failed with error: {}".format(attach_vol_to_cluster_script, error))
-        exit()
 
 
 def _validate_pool(pool_name, ibox_sdk, size):
@@ -312,7 +276,7 @@ def fs_attach(volume_name, force=False):
     lib.exit_if_vol_not_mapped(volume)
     fs = instance_fs(volume, sdk.get_cluster())
     _mountpoint_exist(fs.get_mountpoint())
-    _run_attach_vol_to_cluster_scirpt(fs)
+    ps_cmd._run_attach_vol_to_cluster_scirpt(fs)
     lib.print_green("Volume {} Attached to Cluster Successfully.".format(volume_name))
 
 def fs_detach():
@@ -328,7 +292,7 @@ def fs_create(volume_name, volume_pool, volume_size):
     volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size)
     map_vol_to_cluster(volume)
     fs = instance_fs(volume, sdk.get_cluster())
-    _run_prep_vol_to_cluster_scirpt(fs)
+    ps_cmd._run_prep_vol_to_cluster_scirpt(fs)
     try:
         fs_attach(volume_name, force=True)
     except:

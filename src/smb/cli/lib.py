@@ -116,7 +116,7 @@ def _validate_size(size_str, roundup=False):
     return size
 
 def get_path_free_size(full_path):
-    from smb.cli.execute_cmd import run
+    from smb.cli.ps_cmd import run
     if not path.exists(full_path):
         return
     cmd = ['powershell', '-c', 'df', '-B K', full_path, '--output=size,used,avail']
