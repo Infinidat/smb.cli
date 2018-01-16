@@ -34,7 +34,7 @@ import docopt
 from smb.cli import lib
 from smb.cli.config import config_get, config_set
 from smb.cli.__version__ import __version__
-
+config = config_get(silent=True)
 
 def commandline_to_docopt(argv):
     global output_stream
@@ -111,6 +111,19 @@ def run_fs_attach(arguments):
     config = config_get(silent=True)
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
     fs_attach(arguments['--name'], arguments['--force'])
+
+
+def run_fs_detach(arguments):
+    from smb.cli.fs import fs_detach
+    lib.approve_danger_op("Detaching Filesystem {} from Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
+    fs_detach(arguments['--name'])
+
+
+def run_fs_delete(arguments):
+    from smb.cli.fs import fs_delete
+    lib.approve_danger_op("Deleting Filesystem {} completely. NO WAY BACK!".format(arguments['--name']), arguments)
+    fs_delete(arguments['--name'])
+
 
 def run_share_query(arguments):
     from smb.cli.share import share_query

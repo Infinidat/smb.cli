@@ -108,3 +108,17 @@ def _run_attach_vol_to_cluster_scirpt(fs):
         error = sys.exc_info()[1]
         lib.print_red("{} failed with error: {}".format(attach_vol_to_cluster_script, error))
         exit()
+
+def _run_move_cluster_volume_offline(vol_name):
+    cmd = ['powershell', '-c', 'Stop-ClusterResource', '-Name', lib.pad_text(str(vol_name)),
+           '-Cluster', config['FSRoleName'], '-Confirm:$False']
+    error_prefix = "Stop-ClusterResource failed with error:"
+    run(cmd, error_prefix)
+
+
+def _run_reomve_vol_from_cluster(vol_name):
+    cmd = ['powershell', '-c', 'Remove-ClusterResource', '-Name', lib.pad_text(str(vol_name)),
+           '-Cluster' config['FSRoleName', '-Confirm:$False']]
+    error_prefix = "Remove-ClusterResource failed with error:"
+    run(cmd, error_prefix)
+

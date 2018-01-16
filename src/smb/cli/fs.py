@@ -48,9 +48,9 @@ def instance_fs(volume, cluster, win_id=None):
     return Fs(volume_name, lun_number, win_id, num_snaps)
 
 
-def _get_default_mountpoint(vol_name):
+def _get_default_mountpoint(volume_name):
     from os import path
-    return path.normcase(path.join(config['MountRoot'], vol_name).strip())
+    return path.normcase(path.join(config['MountRoot'], volume_name).strip())
 
 
 def _winid_serial_table_to_dict():
@@ -99,13 +99,14 @@ def _validate_max_amount_of_volumes(lib_sdk):
         exit()
 
 
-def _validate_vol(ibox_sdk, vol_name):
+def _validate_vol(ibox_sdk, volume_name):
     from infinisdk.core.type_binder import ObjectNotFound
     try:
-        return ibox_sdk.volumes.choose(name=vol_name)
+        return ibox_sdk.volumes.choose(name=volume_name)
     except ObjectNotFound:
-        lib.print_yellow("Volume {} couldn't be found on {}".format(vol_name, ibox_sdk.get_name()))
+        lib.print_yellow("Volume {} couldn't be found on {}".format(volume_name, ibox_sdk.get_name()))
         exit()
+
 
 def _count_shares_on_fs(fs_path, shares_paths):
     count = 0
@@ -163,13 +164,11 @@ def create_volume_on_infinibox(volume_name, pool_name, size):
         exit()
 
 
-def clean_fs(fs):
+def unmap_infinibox_volume(volume_name, mountpoint):
     import os
-    unmap_vol_from_cluster_infinibox(fs.get_infinibox_vol_name())
-    os.rmdir(fs.get_mountpoint())
-    lib.print_yellow("Directory {} was deleted".format(fs.get_mountpoint()))
-    delete_volume_on_infinibox(fs.get_infinibox_vol_name())
-
+    unmap_vol_from_cluster_infinibox(volume_name)
+    os.rmdir(mountpoint)
+    lib.print_yellow("{} unmapped".format(mountpoint))
 
 def _get_mapped_vols():
     sdk = lib.InfiSdkObjects()
@@ -245,6 +244,7 @@ def print_fs_query(mapped_vols, print_units, serial_list):
                 _print_format(str(num_of_shares), "shares")]
         print " ".join(line)
 
+
 def _get_all_fs():
     serial_list = _winid_serial_table_to_dict()
     mapped_vols = _get_mapped_vols()
@@ -268,7 +268,7 @@ def fs_attach(volume_name, force=False):
     sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     _validate_max_amount_of_volumes(sdk)
-    volume = _validate_vol(ibox, vol_name=volume_name)
+    volume = _validate_vol(ibox, volume_name)
     if force and lib.is_volume_mapped_to_cluster(volume):
         pass
     else:
@@ -279,12 +279,30 @@ def fs_attach(volume_name, force=False):
     ps_cmd._run_attach_vol_to_cluster_scirpt(fs)
     lib.print_green("Volume {} Attached to Cluster Successfully.".format(volume_name))
 
-def fs_detach():
-    '''
-    Stop-ClusterResource -name -Cluster # offline
-    Remove-ClusterResource [[-Name] -Cluster
-    '''
-    pass
+
+def fs_detach(fsname):
+    from smb.cli.share import get_all_shares_data, join_fs_and_share
+    if fsname not in all_filesystems:
+        lib.print_red("{} Does NOT exist. Typo?".format(fsname))
+        exit()
+    sdk = lib.InfiSdkObjects()
+    ibox = sdk.get_ibox()
+    volume = _validate_vol(ibox, fsname)
+    volume_name = volume.get_name()
+    all_filesystems = _get_all_fs()
+    shares = get_all_shares_data()
+    # remove all shares
+    # unmap
+    ps_cmd._run_move_cluster_volume_offline(volume_name)
+    ps_cmd._run_reomve_vol_from_cluster(volume_name)
+    unmap_infinibox_volume(volume_name, _get_default_mountpoint(volume_name))
+
+
+def fs_delete(fsname):
+    fs_detach(fsname)
+    delete_volume_on_infinibox(fsname)
+    lib.print_yellow("{} Deleted".format(fsname))
+
 
 def fs_create(volume_name, volume_pool, volume_size):
     sdk = lib.InfiSdkObjects()
@@ -299,4 +317,4 @@ def fs_create(volume_name, volume_pool, volume_size):
         e = sys.exc_info
         lib.print_red("Something went wrong. Rolling back operations...")
         fs = instance_fs(volume, sdk.get_cluster())
-        clean_fs(fs) # should be relaced with delete
+        # ADD cleanup
