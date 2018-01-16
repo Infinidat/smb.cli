@@ -6,13 +6,66 @@ config = InfiSdkObjects().get_local_config()
 
 ''' Share objects and values returned from get_all_shares_data:
     Disabled = "True" / "False" as strings
-    share_name = string containigs
+    share_name = string
     Softlimit = int
     Usage = int
     path = path to share in lowercase (normcase)
     size = int
     freeonfs
 '''
+class Share(object):
+    def __init__(self, sharename=None, sharepath=None, disabled=None, usage=None, size=None, freeonfs=None, fs=None):
+        self.name = sharename
+        self.path = sharepath
+        self.disabled = disabled
+        self.usage = usage
+        self.size = size
+        self.freeonfs = freeonfs
+        self.fs = fs
+
+    def __eq__(self, other):
+        return isinstance(other, Share) and self.path == other.get_path()
+
+    def get_path(self):
+        return self.path
+
+    def get_name(self):
+        return self.name
+
+    def is_limited(self):
+        try:
+            if self.disabled == "True":
+                return False
+            if self.disabled == "False":
+                return True
+        except AttributeError:
+            return
+
+    def get_usage(self):
+        try:
+            return self.usage
+        except AttributeError:
+            return
+
+    def get_size(self):
+        try:
+            return self.size
+        except AttributeError:
+            return
+
+    def get_free_space(self):
+        try:
+            return self.freeonfs
+        except AttributeError:
+            return
+
+    def get_fs(self):
+        try:
+            return self.fs
+        except AttributeError:
+            return
+
+
 
 def _print_format(val, val_type):
     def _trim_or_fill(val, lenght):
@@ -39,18 +92,22 @@ def print_share_query(shares):
     header = 'FSName         ShareName      Path                     Quota       UsedQuota   FilesystemFree'
     print header
     for share in shares:
-        if share['Disabled'] == "True":
+        if share.is_limited() is False:
             quota = "-"
             usedquota = "-"
         else:
-            quota = share['size']
-            usedquota = share['Usage']
-        line = [_print_format(share['fsname'], 'fsname'),
-                _print_format(share['share_name'], 'sharename'),
-                _print_format(share['path'], 'path'),
+            quota = share.get_size()
+            usedquota = share.get_usage()
+        if None in [ quota, share.get_free_space(), usedquota]:
+            fsname = "**INVALID**"
+        else:
+            fsname = share.fs['fsname']
+        line = [_print_format(fsname, 'fsname'),
+                _print_format(share.get_name(), 'sharename'),
+                _print_format(share.get_path(), 'path'),
                 _print_format(quota, 'quota'),
                 _print_format(usedquota, 'usedQuota'),
-                _print_format(share['freeonfs'], 'filesystemfree')]
+                _print_format(share.get_free_space(), 'filesystemfree')]
         print " ".join(line)
 
 
@@ -83,15 +140,25 @@ def _run_share_quota_get():
     return run(cmd, error_prefix)
 
 
+def _run_create_share_limit_default(share_path):
+    # This can be always set over and over from any state
+    cmd = ['powershell', '-c', 'New-FSRMQuota', '-Path', lib.pad_text(share_path), '-Size 1KB', '-Disabled:$True']
+    error_prefix = "New-FSRMQuota failed with error:"
+    run(cmd, error_prefix)
+
+
 def _run_share_limit_set_default(share_path):
     # This can be always set over and over from any state
-    cmd = ['powershell', '-c', 'New-FSRMQuota', '-Path', lib.pad_text(share_path), '-Size 1KB', '-Disabled']
+    cmd = ['powershell', '-c', 'Set-FSRMQuota', '-Path', lib.pad_text(share_path), '-Size 1KB', '-Disabled:$True']
     error_prefix = "New-FSRMQuota failed with error:"
     run(cmd, error_prefix)
 
 
 def _run_share_limit_set(share_path, size):
-    cmd = ['powershell', '-c', 'Set-FSRMQuota', '-Path', lib.pad_text(share_path), '-Size', size, '-Disabled:$False']
+    # Size differnces between capacity and windows ( in Win KB is KiB)
+    size = str(( size / byte ) / 1024 ) + "KB"
+    cmd = ['powershell', '-c', 'Set-FSRMQuota', '-Path', lib.pad_text(share_path), '-Size',
+           size, '-Disabled:$False']
     error_prefix = "Set-FSRMQuota failed with error:"
     run(cmd, error_prefix)
 
@@ -125,7 +192,7 @@ def _get_share_limit_to_dict():
     return shares_quota
 
 
-def _share_query_to_dict():
+def _share_query_to_share_instance():
     #  Run Get-SmbShare and pars it to list of dicts contains share name and path
     import re
     from os import path
@@ -142,56 +209,51 @@ def _share_query_to_dict():
                 #  Skip Hidden shares
                 continue
             if result:
-                result['path'] = path.normcase(result['path'])
-                shares.append(result)
+                share = Share(result['share_name'], path.normcase(result['path']))
+                # result['path'] = path.normcase(result['path'])
+                shares.append(share)
     return shares
 
-def _merge_share_dicts(d1, d2):
-    ''' Marge 2 share dicts and remove duplicate value: Path if exist
-    '''
-    d = d1.copy()
-    d.update(d2)
-    if 'Path' in d:
-        d.pop('Path')
-    return d
 
 def get_all_shares_data():
-    shares_list = []
-    shares = _share_query_to_dict()
+    shares = []
+    shares_only = _share_query_to_share_instance()
     quotas = _get_share_limit_to_dict()
-    for share in shares:
+    for share in shares_only:
         for quota in quotas:
-            if share['path'] == quota['path']:
-                shares_list.append(_merge_share_dicts(share, quota))
+            if share.get_path() == quota['path']:
+                shares.append(Share(share.get_name(), share.get_path(), disabled=quota['Disabled'],
+                                    usage=quota['Usage'], size=quota['size'],
+                                    freeonfs=(lib.get_path_free_size(share.get_path())['avail']) * KiB))
                 break
-    return shares_list
+    for share in shares_only:
+        if share not in shares:
+            shares.append(share)
+    return shares
 
 
 def join_fs_and_share(filesystems, shares):
     share_list = []
     for filesystem in filesystems:
         for share in shares:
-            if filesystem['mount'] in share['path']:
-                share_list.append(_merge_share_dicts(filesystem, share))
+            if filesystem['mount'] in share.get_path():
+                share.fs = filesystem
+                share_list.append(share)
     return share_list
 
 
-def share_query(arguments):
-    from smb.cli.fs import _get_all_fs
-    shares_data = get_all_shares_data()
-    filesystems_data = _get_all_fs()
-    shares = join_fs_and_share(filesystems_data, shares_data)
-    for share in shares:
-        share['freeonfs'] = lib.get_path_free_size(share['path'])['avail'] * KiB
-    if len(shares) == 0:
-        print "No Share Are Defined"
-        exit()
-    print_share_query(shares)
+def find_share_from_list_of_shares(share_list, share_name=None, share_path=None):
+    '''Given share list and share name or share path, returns the relevant share
+    '''
+    for share in share_list:
+        if share.get_name() == share_name or share.get_path() == share_path:
+            return share
+
 
 def _share_create_prechecks(share_name, share_path):
     from os import path
     from smb.cli.fs import _get_all_fs
-    existing_shares = get_all_shares_data()
+    existing_shares = _share_query_to_share_instance()
     MAX_PATH_LENTH = 120  # max share char because we are parsing output this might be a problem
     vaild_fs = False
     full_path = path.normcase(path.realpath(share_path))
@@ -202,10 +264,10 @@ def _share_create_prechecks(share_name, share_path):
         lib.print_yellow("Path length is to long. path length of {} characters is currently supported")
         exit()
     for share in existing_shares:
-        if share['share_name'] == share_name:
+        if share.get_name() == share_name:
             lib.print_yellow("Share Name Conflict ! {} Share Name Exists".format(share_name))
             exit()
-        if path.realpath(share['path']) == full_path:
+        if path.realpath(share.get_path()) == full_path:
             lib.print_yellow("'{}' is Already Shared, Lucky You ?!".format(share_path))
             exit()
     filesystems = _get_all_fs()
@@ -221,56 +283,50 @@ def _share_create_prechecks(share_name, share_path):
     return full_path
 
 
-def find_share_from_list_of_shares(share_list, share_name=None, share_path=None):
-    '''Given share list and  share name or share path, returns the relevant share
-    '''
-    if share_name:
-        for share in share_list:
-            if share['share_name'] == share_name:
-                return share
-    if share_path:
-        for share in share_list:
-            if share['Path'] == share_path:
-                return share
-
-
 def _share_limit_prechecks_and_set(share_name, size):
     from smb.cli.__version__ import __version__
     # TODO: check max vol size and make sure limit isn't bigger then it (GregT)
     shares = get_all_shares_data()
-    shares_paths = [share['path'] for share in shares]
+    shares_paths = [share.get_path() for share in shares]
     share = find_share_from_list_of_shares(shares, share_name=share_name)
-    if share['Disabled'] == "False":
+    if share.is_limited():
         print "{} is Already Size Limited, Changing Size to {}".format(share_name, size)
-        _run_share_limit_set(share['path'], size)
+        _run_share_limit_set(share.get_path(), size)
         exit()
-    if share['path'] in shares_paths:
+    if share.get_path() in shares_paths:
         for s in shares:
-            if s['path'] in share['path'] or share['path'] in s['path']:
-                if s['Disabled'] == "False":
+            if s.get_path() in share.get_path() or share.get_path() in s.get_path():
+                if s.is_limited():
                     lib.print_yellow("Recursive Size Limit is NOT Supported in {}".format(__version__))
-                    lib.print_yellow("New Limit {} Conflicts with {}".format(share['path'], s['path']))
+                    lib.print_yellow("New Limit {} Conflicts with {}".format(share.get_path(), s.get_path()))
                     exit()
-    _run_share_limit_set(share['path'], size)
+    _run_share_limit_set(share.get_path(), size)
 
 
-def share_create(share_name, share_path, size_str):
-    if size_str:
-        size = lib._validate_size(size_str, roundup=True)
+def share_query(arguments):
+    from smb.cli.fs import _get_all_fs
+    shares_data = get_all_shares_data()
+    filesystems_data = _get_all_fs()
+    shares = join_fs_and_share(filesystems_data, shares_data)
+    if len(shares) == 0:
+        print "No Share Are Defined"
+    print_share_query(shares)
+
+
+def share_create(share_name, share_path, size):
     if share_path[-1] in ["'", '"']:
         # Fix Dir path ends with \ e.g. "c:\dir\" didn't work. \" removed last "
         share_path = share_path[0:-1]
     _share_create_prechecks(share_name, share_path)
     _run_share_create(share_name, share_path)
     lib.print_green("'{}' Share Created".format(share_name))
-    if size_str is None:
-        _run_share_limit_set_default(share_path)
+    _run_create_share_limit_default(share_path)
+    if size == 0:
         exit()
     share_limit(share_path, size)
 
 
 def share_limit(share_name, size):
-    size = lib._validate_size(size_str, roundup=True)
     _share_limit_prechecks_and_set(share_name, size)
     lib.print_green("{} limited to {}".format(share_name, size))
 
@@ -278,11 +334,11 @@ def share_limit(share_name, size):
 def share_unlimit(share_name):
     shares = get_all_shares_data()  # Slow everything down maybe can removed.
     share = find_share_from_list_of_shares(shares, share_name=share_name)
-    if shares['Disabled'] == "True":
+    if share.is_limited() is False:
         lib.print_yellow("{} doesn't have a limit on it.".format(share['share_name']))
         exit()
-    _run_share_limit_set_default(share['path'])
-    lib.print_green("{} size limit removed".format(share['share_name']))
+    _run_share_limit_set_default(share.get_path())
+    lib.print_green("{} size limit removed".format(share.get_name()))
 
 
 def share_delete(share_name):
@@ -290,6 +346,6 @@ def share_delete(share_name):
     share = find_share_from_list_of_shares(shares, share_name)
     if share is None:
         lib.print_yellow("{} Doesn't exist. Can't delete it... ".format(share_name))
-    _run_share_limit_delete(share['path'])
+    _run_share_limit_delete(share.get_path())
     _run_share_delete(share_name)
     lib.print_green("{} Deleted".format(share_name))

@@ -7,15 +7,13 @@ config = config_get(silent=True)
 MAX_ATTACHED_VOLUMES = 100  # maximum amount of simultaneously attached volumes
 
 class Fs(object):
-    def __init__(self, infinibox_vol_name, lun_number, winid, fs_size, used_size, num_snaps, num_shares):
+    def __init__(self, infinibox_vol_name, lun_number, winid, num_snaps):
         self.infinibox_vol_name = infinibox_vol_name
         self.lun_number = lun_number
         self.winid = winid
-        self.mountpoint = _get_defualt_mountpoint(infinibox_vol_name)
-        self.fs_size = fs_size
-        self.used_size = used_size
+        self.mountpoint = _get_default_mountpoint(infinibox_vol_name)
+        self.fs_sizes = lib.get_path_free_size(self.mountpoint)
         self.num_snaps = num_snaps
-        self.num_shares = num_shares
 
     def get_mountpoint(self):
         return self.mountpoint
@@ -38,23 +36,19 @@ class Fs(object):
     def get_num_snaps(self):
         return self.num_snaps
 
-    def get_num_shares(self):
-        return self.num_shares
-
 
 def instance_fs(volume, cluster, win_id=None):
     ''' receives an infinisdk volume object and create a usable fs instance
     '''
-    # TODO: Get number of shares
     volume_name = volume.get_name()
     lun_number = cluster.get_lun(volume).get_lun()
     if win_id is None:
         win_id = _get_winid_by_serial(volume.get_serial())
     num_snaps = len(volume.get_snapshots().to_list())
-    return Fs(volume_name, lun_number, win_id, num_snaps, 0)
+    return Fs(volume_name, lun_number, win_id, num_snaps)
 
 
-def _get_defualt_mountpoint(vol_name):
+def _get_default_mountpoint(vol_name):
     from os import path
     return path.normcase(path.join(config['MountRoot'], vol_name).strip())
 
@@ -148,6 +142,13 @@ def _validate_vol(ibox_sdk, vol_name):
     except ObjectNotFound:
         lib.print_yellow("Volume {} couldn't be found on {}".format(vol_name, ibox_sdk.get_name()))
         exit()
+
+def _count_shares_on_fs(fs_path, shares_paths):
+    count = 0
+    for share in shares_paths:
+        if share.startswith(fs_path):
+            count = count + 1
+    return count
 
 
 def unmap_vol_from_cluster_windows(volume_name):
@@ -243,6 +244,9 @@ def _print_format(val, val_type):
 
 
 def print_fs_query(mapped_vols, print_units, serial_list):
+    from smb.cli.share import _share_query_to_share_instance
+    shares = _share_query_to_share_instance()
+    shares_paths = [share.get_path() for share in shares]
     if len(mapped_vols) > 2:
         ibox = mapped_vols[0].get_system()
     else:
@@ -262,6 +266,7 @@ def print_fs_query(mapped_vols, print_units, serial_list):
         if not win_id:
             win_id = None
         fs = instance_fs(volume, cluster, win_id)
+        num_of_shares = _count_shares_on_fs(fs.get_mountpoint(), shares_paths)
         if print_units:
             fs_size = str((fs.get_fs_size() / print_units)) + " " + str(print_units)[2:]
             used_size = str((fs.get_used_size() / print_units)) + " " + str(print_units)[2:]
@@ -273,19 +278,18 @@ def print_fs_query(mapped_vols, print_units, serial_list):
                 _print_format(str(fs_size), "size",),
                 _print_format(str(used_size), "used_size"),
                 _print_format(str(fs.get_num_snaps()), "snaps"),
-                _print_format(str(fs.get_num_shares()), "shares")]
+                _print_format(str(num_of_shares), "shares")]
         print " ".join(line)
 
 def _get_all_fs():
-    # The most usable function here !
     serial_list = _winid_serial_table_to_dict()
     mapped_vols = _get_mapped_vols()
     for disk in serial_list:
         for ibox_vol in mapped_vols:
             if disk['serial'] == ibox_vol.get_serial():
-                disk['name'] = ibox_vol.get_name()
-                disk['mount'] = _get_defualt_mountpoint(disk['name'])
-    return [ vol for vol in serial_list if vol.has_key('mount')]
+                disk['fsname'] = ibox_vol.get_name()
+                disk['mount'] = _get_default_mountpoint(disk['fsname'])
+    return [vol for vol in serial_list if 'mount' in vol]
 
 
 def fs_query(units):
@@ -311,6 +315,12 @@ def fs_attach(volume_name, force=False):
     _run_attach_vol_to_cluster_scirpt(fs)
     lib.print_green("Volume {} Attached to Cluster Successfully.".format(volume_name))
 
+def fs_detach():
+    '''
+    Stop-ClusterResource -name -Cluster # offline
+    Remove-ClusterResource [[-Name] -Cluster
+    '''
+    pass
 
 def fs_create(volume_name, volume_pool, volume_size):
     sdk = lib.InfiSdkObjects()
@@ -325,4 +335,4 @@ def fs_create(volume_name, volume_pool, volume_size):
         e = sys.exc_info
         lib.print_red("Something went wrong. Rolling back operations...")
         fs = instance_fs(volume, sdk.get_cluster())
-        clean_fs(fs)
+        clean_fs(fs) # should be relaced with delete

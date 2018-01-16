@@ -98,10 +98,14 @@ def exit_if_vol_not_mapped(volume):
 
 
 def _validate_size(size_str, roundup=False):
-    from capacity import byte
     import capacity
+    from capacity import byte
+    if size_str == '0' or size_str is None:
+        return 0
     try:
         size = capacity.from_string(size_str)
+        if size == capacity.Capacity(0):
+            return 0
         if roundup:
             if (size / byte) / 512 != int((size / byte) / 512):
                 size = ((int((size / byte) / 512) + 1) * 512)

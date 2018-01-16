@@ -129,6 +129,7 @@ def run_share_resize(arguments):
     size = lib._validate_size(arguments['<size>'])
     if size != 0:
         share_limit(arguments['--name'], size)
+        exit()
     share_unlimit(arguments['--name'])
 
 
