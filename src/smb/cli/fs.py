@@ -24,7 +24,7 @@ class Fs(object):
     def get_lun_number(self):
         return self.lun_number
 
-    def get_infinibox_vol_name(self):
+    def get_name(self):
         return self.infinibox_vol_name
 
     def get_fs_size(self):
@@ -236,7 +236,7 @@ def print_fs_query(mapped_vols, print_units, serial_list):
         else:
             fs_size = fs.get_fs_size() if Capacity(0) != fs.get_fs_size() else 0
             used_size = fs.get_used_size() if Capacity(0) != fs.get_used_size() else 0
-        line = [_print_format(fs.get_infinibox_vol_name(), "name"),
+        line = [_print_format(fs.get_name(), "name"),
                 _print_format(fs.get_mountpoint(), "mount"),
                 _print_format(str(fs_size), "size",),
                 _print_format(str(used_size), "used_size"),
@@ -281,18 +281,22 @@ def fs_attach(volume_name, force=False):
 
 
 def fs_detach(fsname):
-    from smb.cli.share import get_all_shares_data, join_fs_and_share
-    if fsname not in all_filesystems:
+    from smb.cli.share import get_all_shares_data, join_fs_and_share, find_share_from_list_of_shares
+    from smb.cli.share import share_delete
+    all_filesystems = _get_all_fs()
+    if fsname not in [fs['fsname'] for fs in all_filesystems]:
         lib.print_red("{} Does NOT exist. Typo?".format(fsname))
         exit()
     sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
     volume = _validate_vol(ibox, fsname)
     volume_name = volume.get_name()
-    all_filesystems = _get_all_fs()
+    fs = instance_fs(volume, ibox.host_clusters.choose(name=config['Cluster']))
     shares = get_all_shares_data()
-    # remove all shares
-    # unmap
+    full_share_list = join_fs_and_share(all_filesystems, shares)
+    for s in full_share_list:
+        if s.get_fs()['fsname'] == fs.get_name():
+            share_delete(s.get_name())
     ps_cmd._run_move_cluster_volume_offline(volume_name)
     ps_cmd._run_reomve_vol_from_cluster(volume_name)
     unmap_infinibox_volume(volume_name, _get_default_mountpoint(volume_name))
