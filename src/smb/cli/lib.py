@@ -147,9 +147,7 @@ def pad_text(path):
 
 
 def is_volume_mapped_to_cluster(volume):
-    config = config_get(silent=True)
-    ibox = volume.get_system()
-    cluster = ibox.host_clusters.choose(name=config['Cluster'])
+    cluster = InfiSdkObjects().get_cluster()
     try:
         cluster.get_lun(volume)
     except:
@@ -214,6 +212,8 @@ class InfiSdkObjects(object):
         store = initiate_store(self.config['IboxAddress'])
         ibox = infinisdk.InfiniBox(str(self.config['IboxAddress']),
                                    auth=(store.get_username(), store.get_password()))
+        if ibox.is_logged_in():
+            return ibox
         response = ibox.login()
         if response.status_code == 200:
             return ibox

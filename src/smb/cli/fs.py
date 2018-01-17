@@ -7,11 +7,10 @@ config = config_get(silent=True)
 MAX_ATTACHED_VOLUMES = 100  # maximum amount of simultaneously attached volumes
 
 class Fs(object):
-    def __init__(self, infinibox_vol_name, lun_number, winid, num_snaps):
-        self.infinibox_vol_name = infinibox_vol_name
-        self.lun_number = lun_number
-        self.winid = winid
-        self.mountpoint = _get_default_mountpoint(infinibox_vol_name)
+    def __init__(self, infinibox_vol, winid=None):
+        sdk = lib.InfiSdkObjects()
+        self.ibox = sdk.get_ibox()
+        self.cluster = sdk.get_cluster()
         self.fs_sizes = lib.get_path_free_size(self.mountpoint)
         self.num_snaps = num_snaps
 
@@ -123,7 +122,7 @@ def unmap_vol_from_cluster_windows(volume_name):
 def unmap_vol_from_cluster_infinibox(volume_name):
     sdk = lib.InfiSdkObjects()
     ibox = sdk.get_ibox()
-    cluster = ibox.host_clusters.choose(name=config['Cluster'])
+    cluster = sdk.get_cluster()
     volume = ibox.volumes.choose(name=volume_name)
     cluster.unmap_volume(volume)
     lib.print_yellow("Volume {} was just unmapped".format(volume.get_name()))
@@ -131,8 +130,7 @@ def unmap_vol_from_cluster_infinibox(volume_name):
 
 def map_vol_to_cluster(volume):
     sdk = lib.InfiSdkObjects()
-    ibox = sdk.get_ibox()
-    cluster = ibox.host_clusters.choose(name=config['Cluster'])
+    cluster = sdk.get_cluster()
     try:
         mapping = cluster.map_volume(volume)
     except:
@@ -172,8 +170,7 @@ def unmap_infinibox_volume(volume_name, mountpoint):
 
 def _get_mapped_vols():
     sdk = lib.InfiSdkObjects()
-    ibox = sdk.get_ibox()
-    cluster = ibox.host_clusters.choose(name=config['Cluster'])
+    cluster = sdk.get_cluster()
     mapped_vols = cluster.get_lun_to_volume_dict()
     return [volume for volume in mapped_vols.itervalues()]
 
@@ -217,7 +214,6 @@ def print_fs_query(mapped_vols, print_units, serial_list):
         exit()
     header = 'Name               Mount              Size         Used Size    Snaps   Shares'
     print header
-    cluster = ibox.host_clusters.choose(name=config['Cluster'])
     for volume in mapped_vols:
         if volume.get_name() in ["mountpoint", "witness"]:
             continue
