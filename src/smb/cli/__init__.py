@@ -2,20 +2,20 @@
 INFINIDAT SMB Cluster and exports manager
 
 Usage:
-    smbmgr fs create <size> --name=FSNAME [--pool=POOL_NAME]
+    smbmgr fs create --size=SIZE --name=FSNAME [--pool=POOL_NAME]
     smbmgr fs delete --name=FSNAME [--yes]
     smbmgr fs attach --name=FSNAME [--yes] [--force]
     smbmgr fs detach --name=FSNAME [--yes]
     smbmgr fs query [--size_unit=UNIT]
     smbmgr share create --name=SHARENAME --path=PATH [--size=SIZE]
     smbmgr share delete --name=SHARENAME [--yes]
-    smbmgr share resize <size> --name=SHARENAME [--yes]
+    smbmgr share resize --size=SIZE --name=SHARENAME [--yes]
     smbmgr share query
     smbmgr config set <key=value>
     smbmgr config get
 
 Options:
-    size                        Desired size in capacity units (examples: 10GB, 100MB, 1TB)
+    --size=SIZE                      Desired size in capacity units (examples: 10GB, 100MB, 1TB)
     --pool=POOL_NAME            Pool to provision/search vol on. Use "smbmgr config get/set" to View/Modify
     --size_unit=UNIT            Show sizes in specific format. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
     --force                     Continue on errors (not recommended !). Only for "fs attach"
@@ -34,7 +34,8 @@ import docopt
 from smb.cli import lib
 from smb.cli.config import config_get, config_set
 from smb.cli.__version__ import __version__
-config = config_get(silent=True)
+sdk = lib.InfiSdkObjects()
+config = sdk.get_local_config()
 
 def commandline_to_docopt(argv):
     global output_stream
@@ -70,20 +71,20 @@ def arguments_to_functions(arguments):
     if arguments['fs']:
         arguments = _use_default_config_if_needed(arguments)
         if arguments['create']:
-            run_fs_create(arguments)
+            run_fs_create(arguments, sdk)
         if arguments['delete']:
-            run_fs_delete(arguments)
+            run_fs_delete(arguments, sdk)
         if arguments['attach']:
-            run_fs_attach(arguments)
+            run_fs_attach(arguments, sdk)
         if arguments['detach']:
-            run_fs_detach(arguments)
+            run_fs_detach(arguments, sdk)
         if arguments['query']:
-            run_fs_query(arguments)
+            run_fs_query(arguments, sdk)
     if arguments['share']:
         if arguments['create']:
-            run_share_create(arguments)
+            run_share_create(arguments, sdk)
         if arguments['query']:
-            run_share_query(arguments)
+            run_share_query(arguments, sdk)
         if arguments['resize']:
             run_share_resize(arguments)
         if arguments['delete']:
@@ -95,52 +96,52 @@ def arguments_to_functions(arguments):
             run_config_set(arguments)
 
 
-def run_fs_query(arguments):
+def run_fs_query(arguments, sdk):
     from smb.cli.fs import fs_query
-    fs_query(arguments['--size_unit'])
+    fs_query(arguments['--size_unit'], sdk)
 
 
-def run_fs_create(arguments):
+def run_fs_create(arguments, sdk):
     from smb.cli.fs import fs_create
-    size = lib._validate_size(arguments['<size>'])
-    fs_create(arguments['--name'], arguments['--pool'], size)
+    size = lib._validate_size(arguments['--size'], roundup=True)
+    fs_create(arguments['--name'], arguments['--pool'], size, sdk)
 
 
-def run_fs_attach(arguments):
+def run_fs_attach(arguments, sdk):
     from smb.cli.fs import fs_attach
     config = config_get(silent=True)
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
-    fs_attach(arguments['--name'], arguments['--force'])
+    fs_attach(arguments['--name'], sdk, arguments['--force'])
 
 
-def run_fs_detach(arguments):
+def run_fs_detach(arguments, sdk):
     from smb.cli.fs import fs_detach
     lib.approve_danger_op("Detaching Filesystem {} from Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
-    fs_detach(arguments['--name'])
+    fs_detach(arguments['--name'], sdk)
 
 
-def run_fs_delete(arguments):
+def run_fs_delete(arguments, sdk):
     from smb.cli.fs import fs_delete
     lib.approve_danger_op("Deleting Filesystem {} completely. NO WAY BACK!".format(arguments['--name']), arguments)
-    fs_delete(arguments['--name'])
+    fs_delete(arguments['--name'], sdk)
 
 
-def run_share_query(arguments):
+def run_share_query(arguments, sdk):
     from smb.cli.share import share_query
-    share_query(arguments['--size_unit'])
+    share_query(arguments['--size_unit'], sdk)
 
 
-def run_share_create(arguments):
+def run_share_create(arguments, sdk):
     from smb.cli.share import share_create
-    size = lib._validate_size(arguments['--size'])
-    share_create(arguments['--name'], arguments['--path'], size)
+    size = lib._validate_size(arguments['--size'], roundup=True)
+    share_create(arguments['--name'], arguments['--path'], size, sdk)
 
 
 def run_share_resize(arguments):
     from smb.cli.share import share_limit, share_unlimit
-    lib.approve_danger_op("Size limiting to share {}".format(arguments['--name']), arguments)
-    size = lib._validate_size(arguments['<size>'])
+    size = lib._validate_size(arguments['--size'], roundup=True)
     if size != 0:
+        lib.approve_danger_op("Size limiting to share {}".format(arguments['--name']), arguments)
         share_limit(arguments['--name'], size)
         exit()
     share_unlimit(arguments['--name'])

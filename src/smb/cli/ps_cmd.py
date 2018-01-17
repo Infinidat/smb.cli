@@ -2,8 +2,9 @@ import sys
 from capacity import *
 from smb.cli import lib
 from infi.execute import execute_assert_success, execute
-from smb.cli.lib import InfiSdkObjects
-config = InfiSdkObjects().get_local_config()
+from smb.cli import config_get
+config = config_get(silent=True)
+
 
 def run(cmd, error_prefix):
     try:
@@ -110,15 +111,22 @@ def _run_attach_vol_to_cluster_scirpt(fs):
         exit()
 
 def _run_move_cluster_volume_offline(vol_name):
-    cmd = ['powershell', '-c', '"', 'Stop-ClusterResource', '-Name', lib.pad_text(str(vol_name)),
-           '-Cluster', lib.pad_text(config['FSRoleName']), '-Confirm:$False', '"']
+    cmd = ['powershell', '-c', 'Stop-ClusterResource', '-Name', lib.pad_text(str(vol_name)),
+           '-Cluster', lib.pad_text(config['FSRoleName'])]
     error_prefix = "Stop-ClusterResource failed with error:"
     run(cmd, error_prefix)
 
 
-def _run_reomve_vol_from_cluster(vol_name):
-    cmd = ['powershell', '-c', '"', 'Remove-ClusterResource', '-Name', lib.pad_text(str(vol_name)),
-           '-Cluster', config['FSRoleName'], '-Confirm:$False', '"']
+def _run_remove_vol_from_cluster(vol_name):
+    # for some wierd way -Confirm:$False isn't working here but -Force does
+    cmd = ['powershell', '-c', 'Remove-ClusterResource', '-Name', lib.pad_text(str(vol_name)),
+           '-Cluster', lib.pad_text(config['FSRoleName']), '-Force']
     error_prefix = "Remove-ClusterResource failed with error:"
     run(cmd, error_prefix)
 
+
+def _check_if_vol_in_cluster(vol_name):
+    cmd = ['powershell', '-c', 'Get-ClusterResource', '-Cluster', lib.pad_text(config['FSRoleName']),
+           '|', 'Select-Object', '-ExpandProperty Name']
+    error_prefix = "Get-ClusterResource failed with error:"
+    return run(cmd, error_prefix)

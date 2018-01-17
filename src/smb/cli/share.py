@@ -1,19 +1,7 @@
 from capacity import *
 from smb.cli import lib, ps_cmd
-from smb.cli.lib import InfiSdkObjects
-config = InfiSdkObjects().get_local_config()
-
 
 class Share(object):
-    ''' Share objects and values returned from powershell:
-    Disabled = "True" / "False" as strings
-    share_name = string
-    Softlimit = int
-    Usage = int
-    path = path to share in lowercase (normcase)
-    size = int
-    freeonfs
-'''
     def __init__(self, sharename=None, sharepath=None, disabled=None, usage=None, size=None, freeonfs=None, fs=None):
         self.name = sharename
         self.path = sharepath
@@ -152,7 +140,6 @@ def _share_query_to_share_instance():
                 continue
             if result:
                 share = Share(result['share_name'], path.normcase(result['path']))
-                # result['path'] = path.normcase(result['path'])
                 shares.append(share)
     return shares
 
@@ -191,8 +178,15 @@ def find_share_from_list_of_shares(share_list, share_name=None, share_path=None)
         if share.get_name() == share_name or share.get_path() == share_path:
             return share
 
+def exit_if_share_doesnt_exist(share_name):
+    shares = get_all_shares_data()
+    share = find_share_from_list_of_shares(shares, share_name=share_name)
+    if share is None:
+        lib.print_yellow("{} Doesn't Exist.".format(share_name))
+        exit()
+    return share
 
-def _share_create_prechecks(share_name, share_path):
+def _share_create_prechecks(share_name, share_path, sdk):
     from os import path
     from smb.cli.fs import _get_all_fs
     existing_shares = _share_query_to_share_instance()
@@ -212,7 +206,7 @@ def _share_create_prechecks(share_name, share_path):
         if path.realpath(share.get_path()) == full_path:
             lib.print_yellow("'{}' is Already Shared, Lucky You ?!".format(share_path))
             exit()
-    filesystems = _get_all_fs()
+    filesystems = _get_all_fs(sdk)
     for filesystem in filesystems:
         if filesystem['mount'] in full_path:
             vaild_fs = True
@@ -245,21 +239,11 @@ def _share_limit_prechecks_and_set(share_name, size):
     ps_cmd._run_share_limit_set(share.get_path(), size)
 
 
-def share_query(arguments):
-    from smb.cli.fs import _get_all_fs
-    shares_data = get_all_shares_data()
-    filesystems_data = _get_all_fs()
-    shares = join_fs_and_share(filesystems_data, shares_data)
-    if len(shares) == 0:
-        print "No Share Are Defined"
-    print_share_query(shares)
-
-
-def share_create(share_name, share_path, size):
+def share_create(share_name, share_path, size, sdk):
     if share_path[-1] in ["'", '"']:
-        # Fix Dir path ends with \ e.g. "c:\dir\" didn't work. \" removed last "
+        # This if fixes Dir path ends with ticks " e.g. "c:\dir\" without it "\path\" will not work.
         share_path = share_path[0:-1]
-    _share_create_prechecks(share_name, share_path)
+    _share_create_prechecks(share_name, share_path, sdk)
     ps_cmd._run_share_create(share_name, share_path)
     lib.print_green("'{}' Share Created".format(share_name))
     ps_cmd._run_create_share_limit_default(share_path)
@@ -274,20 +258,29 @@ def share_limit(share_name, size):
 
 
 def share_unlimit(share_name):
-    shares = get_all_shares_data()  # Slow everything down maybe can removed.
-    share = find_share_from_list_of_shares(shares, share_name=share_name)
+    share = exit_if_share_doesnt_exist(share_name)
     if share.is_limited() is False:
         lib.print_yellow("{} doesn't have a limit on it.".format(share['share_name']))
         exit()
     ps_cmd._run_share_limit_set_default(share.get_path())
-    lib.print_green("{} size limit removed".format(share.get_name()))
+    lib.print_green("{} Size Limit Removed".format(share.get_name()))
+
+
+def share_query(units, sdk):
+    from smb.cli.fs import _get_all_fs
+    # TODO: Added print by units
+    if units:
+        units = _validate_size(units)
+    shares_data = get_all_shares_data()
+    filesystems_data = _get_all_fs(sdk)
+    shares = join_fs_and_share(filesystems_data, shares_data)
+    if len(shares) == 0:
+        print "No Share Are Defined"
+    print_share_query(shares)
 
 
 def share_delete(share_name):
-    shares = get_all_shares_data()
-    share = find_share_from_list_of_shares(shares, share_name)
-    if share is None:
-        lib.print_yellow("{} Doesn't exist. Can't delete it... ".format(share_name))
+    share = exit_if_share_doesnt_exist(share_name)
     ps_cmd._run_share_limit_delete(share.get_path())
     ps_cmd._run_share_delete(share_name)
-    lib.print_green("{} Deleted".format(share_name))
+    lib.print_green("{} Share Deleted".format(share_name))

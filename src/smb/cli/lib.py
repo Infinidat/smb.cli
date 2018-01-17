@@ -107,9 +107,9 @@ def _validate_size(size_str, roundup=False):
         if size == capacity.Capacity(0):
             return 0
         if roundup:
-            if (size / byte) / 512 != int((size / byte) / 512):
-                size = ((int((size / byte) / 512) + 1) * 512)
-    except:
+            if (size / byte) / 512.0 != int((size / byte) / 512.0):
+                size = ((int((size / byte) / 512) + 1) * 512) * byte
+    except ValueError:
         print_yellow("{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
                          "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ")
         exit()
@@ -146,8 +146,8 @@ def pad_text(path):
     return "{}{}{}".format("'", path, "'")
 
 
-def is_volume_mapped_to_cluster(volume):
-    cluster = InfiSdkObjects().get_cluster()
+def is_volume_mapped_to_cluster(volume, sdk):
+    cluster = sdk.get_cluster()
     try:
         cluster.get_lun(volume)
     except:
@@ -163,6 +163,20 @@ def get_privileges_text():
 def raise_invalid_argument():
     print colorama.Fore.RED + "Invalid Arguments" + colorama.Fore.RESET
     raise
+
+
+def wait_for_ms_volume_removal(volume_name):
+    from time import sleep
+    from smb.cli import ps_cmd
+    ps_cmd._run_remove_vol_from_cluster(volume_name)
+    timeout = 10
+    for i in range(10):
+        vols_in_cluster = ps_cmd._check_if_vol_in_cluster(volume_name).splitlines()
+        if volume_name in vols_in_cluster:
+            sleep(1)
+        else:
+            sleep(2)
+            return
 
 
 def _init_colorama():
@@ -198,22 +212,23 @@ def approve_danger_op(message, arguments):
 class InfiSdkObjects(object):
     def __init__(self):
         self.config = config_get(silent=True)
+        self.ibox = self.ibox_login()
+
+    def get_ibox(self):
+        return self.ibox
 
     def get_local_config(self):
         return self.config
 
     def get_cluster(self):
-        ibox = self.get_ibox()
-        cluster = ibox.host_clusters.choose(name=self.config['Cluster'])
+        cluster = self.ibox.host_clusters.choose(name=self.config['Cluster'])
         return cluster
 
-    def get_ibox(self):
+    def ibox_login(self):
         '''tries to connect using credintal store'''
         store = initiate_store(self.config['IboxAddress'])
         ibox = infinisdk.InfiniBox(str(self.config['IboxAddress']),
                                    auth=(store.get_username(), store.get_password()))
-        if ibox.is_logged_in():
-            return ibox
         response = ibox.login()
         if response.status_code == 200:
             return ibox
