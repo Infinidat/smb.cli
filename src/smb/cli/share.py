@@ -276,6 +276,7 @@ def share_query(units, sdk):
     shares = join_fs_and_share(filesystems_data, shares_data)
     if len(shares) == 0:
         print "No Share Are Defined"
+        exit()
     print_share_query(shares)
 
 
