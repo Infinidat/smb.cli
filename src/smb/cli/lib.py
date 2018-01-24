@@ -115,22 +115,26 @@ def _validate_size(size_str, roundup=False):
         exit()
     return size
 
+
 def get_path_free_size(full_path):
-    from smb.cli.ps_cmd import run
-    if not path.exists(full_path):
-        return
-    cmd = ['powershell', '-c', 'df', '-B K', full_path, '--output=size,used,avail']
-    error_prefix = "error df on {}".format(full_path)
-    df_lines = run(cmd, error_prefix).splitlines()
-    if len(df_lines) != 2:
-        print_red("Something not right")
-        exit()
-    sizes = df_lines[1].split('K')
+    ''' inspired by:
+    http://code.activestate.com/recipes/577972-disk-usage/
+    '''
+    import ctypes
+    import sys
+    from capacity import byte
     size = {}
-    size['size'] = int(sizes[0])
-    size['used'] = int(sizes[1])
-    size['avail'] = int(sizes[2])
+    _, total, free = ctypes.c_ulonglong(), ctypes.c_ulonglong(), ctypes.c_ulonglong()
+    space = ctypes.windll.kernel32.GetDiskFreeSpaceExA
+    result = space(str(full_path), ctypes.byref(_), ctypes.byref(total), ctypes.byref(free))
+    if result == 0:
+        return
+    used = total.value - free.value
+    size['size'] = total.value * byte
+    size['used'] = used * byte
+    size['avail'] = free.value * byte
     return size
+
 
 def is_disk_in_cluster(disk_win_id):
     is_disk_in_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-Cluster', 'src', 'DiskToClusterDiskResource.ps1'))
