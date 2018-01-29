@@ -28,14 +28,21 @@ Note:
 
 {privileges_text}
 """
-
-import sys
-import docopt
-from smb.cli import lib
-from smb.cli.config import config_get, config_set
-from smb.cli.__version__ import __version__
-sdk = lib.InfiSdkObjects()
-config = sdk.get_local_config()
+from smb.cli.smb_log import get_logger, log, log_n_exit
+from logging import DEBUG, INFO, WARNING, ERROR
+logger = get_logger()
+try:
+    log(logger, "Importing module")
+    import sys
+    import docopt
+    from smb.cli import lib
+    from smb.cli.config import config_get, config_set
+    from smb.cli.__version__ import __version__
+    sdk = lib.InfiSdkObjects()
+    config = sdk.get_local_config()
+except KeyboardInterrupt:
+    log(logger, "Keyboard break recived, exiting")
+    exit()
 
 def commandline_to_docopt(argv):
     global output_stream
@@ -47,12 +54,17 @@ def commandline_to_docopt(argv):
                                         privileges_text=lib.get_privileges_text()).strip(),
                                         version=__version__, help=True, argv=argv)
     except docopt.DocoptExit as e:
-        lib.raise_invalid_argument()
+        log(logger, e, level=INFO, raw=True)
+        log_n_exit(logger, "Invalid Arguments")
 
 
 def in_cli(argv=sys.argv[1:]):
-    arguments = commandline_to_docopt(argv)
-    arguments_to_functions(arguments)
+    try:
+        arguments = commandline_to_docopt(argv)
+        arguments_to_functions(arguments)
+    except KeyboardInterrupt:
+        log(logger, "Keyboard break recived, exiting")
+        exit()
 
 
 def _use_default_config_if_needed(arguments):
@@ -66,35 +78,43 @@ def _use_default_config_if_needed(arguments):
 
 def arguments_to_functions(arguments):
     from lib import PreChecks
+    log(logger, "Arguments recived from user:{}".format(arguments))
     if not (arguments['query'] or arguments['config']):
         PreChecks()
-    if arguments['fs']:
-        arguments = _use_default_config_if_needed(arguments)
-        if arguments['create']:
-            run_fs_create(arguments, sdk)
-        if arguments['delete']:
-            run_fs_delete(arguments, sdk)
-        if arguments['attach']:
-            run_fs_attach(arguments, sdk)
-        if arguments['detach']:
-            run_fs_detach(arguments, sdk)
-        if arguments['query']:
-            run_fs_query(arguments, sdk)
-    if arguments['share']:
-        if arguments['create']:
-            run_share_create(arguments, sdk)
-        if arguments['query']:
-            run_share_query(arguments, sdk)
-        if arguments['resize']:
-            run_share_resize(arguments)
-        if arguments['delete']:
-            run_share_delete(arguments)
-    if arguments['config']:
-        if arguments['get']:
-            run_config_get()
-        if arguments['set']:
-            run_config_set(arguments)
-
+    try:
+        if arguments['fs']:
+            arguments = _use_default_config_if_needed(arguments)
+            if arguments['create']:
+                run_fs_create(arguments, sdk)
+            if arguments['delete']:
+                run_fs_delete(arguments, sdk)
+            if arguments['attach']:
+                run_fs_attach(arguments, sdk)
+            if arguments['detach']:
+                run_fs_detach(arguments, sdk)
+            if arguments['query']:
+                run_fs_query(arguments, sdk)
+        if arguments['share']:
+            if arguments['create']:
+                run_share_create(arguments, sdk)
+            if arguments['query']:
+                run_share_query(arguments, sdk)
+            if arguments['resize']:
+                run_share_resize(arguments)
+            if arguments['delete']:
+                run_share_delete(arguments)
+        if arguments['config']:
+            if arguments['get']:
+                run_config_get()
+            if arguments['set']:
+                run_config_set(arguments)
+    except KeyboardInterrupt:
+        log(logger, "Keyboard break recived, exiting")
+        exit()
+    except Exception as e:
+        message = '''{} \n(This is Unusual)
+Please collect the Logs from "{}" and contact Infinidat Support'''
+        log_n_exit(logger, message.format(e, logger.handlers[0].baseFilename))
 
 def run_fs_query(arguments, sdk):
     from smb.cli.fs import fs_query
