@@ -51,7 +51,8 @@ class Fs(object):
 
 
 def _get_default_mountpoint(volume_name):
-    return path.normcase(path.join(config['MountRoot'], volume_name).strip())
+    default_mount_point = path.normcase(path.join(config['MountRoot'], volume_name).strip())
+    return default_mount_point
 
 
 def _winid_serial_table_to_dict():

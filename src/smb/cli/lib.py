@@ -162,12 +162,7 @@ def is_volume_mapped_to_cluster(volume, sdk):
 
 
 def get_privileges_text():
-    return colorama.Fore.RED + "This tool requires administrative privileges." + colorama.Fore.RESET
-
-
-def raise_invalid_argument():
-    print colorama.Fore.RED + "Invalid Arguments" + colorama.Fore.RESET
-    raise
+    return "This tool requires administrative privileges."
 
 
 def wait_for_ms_volume_removal(volume_name):
