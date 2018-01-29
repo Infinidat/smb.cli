@@ -3,6 +3,9 @@ from capacity import *
 from smb.cli import lib
 from infi.execute import execute_assert_success, execute
 from smb.cli import config_get
+from smb.cli.smb_log import get_logger, log, log_n_exit
+from logging import DEBUG, INFO, WARNING, ERROR
+logger = get_logger()
 config = config_get(silent=True)
 
 
@@ -12,8 +15,7 @@ def run(cmd, error_prefix):
         return result.get_stdout()
     except:
         error = sys.exc_info()[1]
-        lib.print_red("{} {}".format(error_prefix, error))
-        exit()
+        log_n_exit(logger, "{} {}".format(error_prefix, error), level=ERROR, color="red")
 
 
 def _run_share_create(share_name, share_path):
@@ -94,8 +96,7 @@ def _run_prep_vol_to_cluster_scirpt(fs):
                                  '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
     except:
         error = sys.exc_info()[1]
-        lib.print_red("{} failed with error: {}".format(vol_to_cluster_script, error))
-        exit()
+        log_n_exit(logger, "{} failed with error: {}".format(vol_to_cluster_script, error))
 
 
 def _run_attach_vol_to_cluster_scirpt(fs):
@@ -107,8 +108,7 @@ def _run_attach_vol_to_cluster_scirpt(fs):
                                  '"' + " -DiskNumber {}".format(fs.get_winid())])
     except:
         error = sys.exc_info()[1]
-        lib.print_red("{} failed with error: {}".format(attach_vol_to_cluster_script, error))
-        exit()
+        log_n_exit(logger, "{} failed with error: {}".format(attach_vol_to_cluster_script, error))
 
 def _run_move_cluster_volume_offline(vol_name):
     cmd = ['powershell', '-c', 'Stop-ClusterResource', '-Name', lib.pad_text(str(vol_name)),

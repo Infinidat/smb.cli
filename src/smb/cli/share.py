@@ -1,5 +1,8 @@
 from capacity import *
 from smb.cli import lib, ps_cmd
+from smb.cli.smb_log import get_logger, log, log_n_exit
+from logging import DEBUG, INFO, WARNING, ERROR
+logger = get_logger()
 
 class Share(object):
     def __init__(self, sharename=None, sharepath=None, disabled=None, usage=None, size=None, freeonfs=None, fs=None):
@@ -78,7 +81,7 @@ def _print_format(val, val_type):
 
 def print_share_query(shares):
     header = 'FSName         ShareName      Path                     Quota       UsedQuota   FilesystemFree'
-    print header
+    log(logger, header, level=INFO, raw=True)
     for share in shares:
         if share.is_limited() is False:
             quota = "-"
@@ -96,6 +99,7 @@ def print_share_query(shares):
                 _print_format(quota, 'quota'),
                 _print_format(usedquota, 'usedQuota'),
                 _print_format(share.get_free_space(), 'filesystemfree')]
+        log(logger, line)
         print " ".join(line)
 
 
@@ -182,8 +186,7 @@ def exit_if_share_doesnt_exist(share_name):
     shares = get_all_shares_data()
     share = find_share_from_list_of_shares(shares, share_name=share_name)
     if share is None:
-        lib.print_yellow("{} Doesn't Exist.".format(share_name))
-        exit()
+        log_n_exit(logger, "{} Doesn't Exist.".format(share_name))
     return share
 
 def _share_create_prechecks(share_name, share_path, sdk):
@@ -194,28 +197,24 @@ def _share_create_prechecks(share_name, share_path, sdk):
     vaild_fs = False
     full_path = path.normcase(path.realpath(share_path))
     if not path.exists(full_path):
-        lib.print_yellow("Path: {} doesn't exist".format(full_path))
-        exit()
+        log_n_exit(logger, "Path: {} doesn't exist".format(full_path))
     if len(full_path) > MAX_PATH_LENTH:
-        lib.print_yellow("Path length is to long. path length of {} characters is currently supported")
+        log(lgger, "Path length is to long. path length of {} characters is currently supported", level=WARNING, color="yellow")
         exit()
     for share in existing_shares:
         if share.get_name() == share_name:
-            lib.print_yellow("Share Name Conflict ! {} Share Name Exists".format(share_name))
-            exit()
+            log_n_exit(logger, "Share Name Conflict ! {} Share Name Exists".format(share_name))
         if path.realpath(share.get_path()) == full_path:
-            lib.print_yellow("'{}' is Already Shared, Lucky You ?!".format(share_path))
+            log(logger, "'{}' is Already Shared, Lucky You ?!".format(share_path), level=WARNING, color="yellow")
             exit()
     filesystems = _get_all_fs(sdk)
     for filesystem in filesystems:
         if filesystem['mount'] in full_path:
             vaild_fs = True
             if lib.is_disk_in_cluster(filesystem['winid']) is False:
-                lib.print_yellow("{} isn't part of the SMB Cluster".format(full_path))
-                exit()
+                log_n_exit(logger, "{} isn't part of the SMB Cluster".format(full_path))
     if vaild_fs is False:
-        lib.print_yellow("{} is NOT a valid share path".format(full_path))
-        exit()
+        log_n_exit(logger, "{} is NOT a valid share path".format(full_path))
     return full_path
 
 
@@ -226,15 +225,16 @@ def _share_limit_prechecks_and_set(share_name, size):
     shares_paths = [share.get_path() for share in shares]
     share = find_share_from_list_of_shares(shares, share_name=share_name)
     if share.is_limited():
-        print "{} is Already Size Limited, Changing Size to {}".format(share_name, size)
+        log(logger, "{} is Already Size Limited, Changing Size to {}".format(share_name, size), level=INFO)
         ps_cmd._run_share_limit_set(share.get_path(), size)
         exit()
     if share.get_path() in shares_paths:
         for s in shares:
             if s.get_path() in share.get_path() or share.get_path() in s.get_path():
                 if s.is_limited():
-                    lib.print_yellow("Recursive Size Limit is NOT Supported in {}".format(__version__))
-                    lib.print_yellow("New Limit {} Conflicts with {}".format(share.get_path(), s.get_path()))
+                    log(logger, "Recursive Size Limit is NOT Supported in {}".format(__version__), level=WARNING, color="yellow")
+                    log(logger, "New Limit {} Conflicts with {}".format(share.get_path(), s.get_path()),
+                        level=WARNING, color="yellow")
                     exit()
     ps_cmd._run_share_limit_set(share.get_path(), size)
 
@@ -245,7 +245,7 @@ def share_create(share_name, share_path, size, sdk):
         share_path = share_path[0:-1]
     _share_create_prechecks(share_name, share_path, sdk)
     ps_cmd._run_share_create(share_name, share_path)
-    lib.print_green("'{}' Share Created".format(share_name))
+    log(logger, "'{}' Share Created".format(share_name), level=INFO, color="green")
     ps_cmd._run_create_share_limit_default(share_path)
     if size == 0:
         exit()
@@ -254,16 +254,16 @@ def share_create(share_name, share_path, size, sdk):
 
 def share_limit(share_name, size):
     _share_limit_prechecks_and_set(share_name, size)
-    lib.print_green("{} limited to {}".format(share_name, size))
+    log(logger, "{} limited to {}".format(share_name, size), level=INFO, color="green")
 
 
 def share_unlimit(share_name):
     share = exit_if_share_doesnt_exist(share_name)
     if share.is_limited() is False:
-        lib.print_yellow("{} doesn't have a limit on it.".format(share['share_name']))
+        log(logger, "{} doesn't have a limit on it.".format(share['share_name']), level=WARNING, color="yellow")
         exit()
     ps_cmd._run_share_limit_set_default(share.get_path())
-    lib.print_green("{} Size Limit Removed".format(share.get_name()))
+    log(logger, "{} Size Limit Removed".format(share.get_name()), level=INFO, color="green")
 
 
 def share_query(units, sdk):
@@ -275,7 +275,7 @@ def share_query(units, sdk):
     filesystems_data = _get_all_fs(sdk)
     shares = join_fs_and_share(filesystems_data, shares_data)
     if len(shares) == 0:
-        print "No Share Are Defined"
+        log(logger, "No Share Are Defined", level=INFO)
         exit()
     print_share_query(shares)
 
@@ -284,4 +284,4 @@ def share_delete(share_name):
     share = exit_if_share_doesnt_exist(share_name)
     ps_cmd._run_share_limit_delete(share.get_path())
     ps_cmd._run_share_delete(share_name)
-    lib.print_green("{} Share Deleted".format(share_name))
+    log(logger, "{} Share Deleted".format(share_name), level=INFO, color="green")

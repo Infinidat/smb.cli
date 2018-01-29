@@ -131,6 +131,7 @@ def run_fs_attach(arguments, sdk):
     from smb.cli.fs import fs_attach
     config = config_get(silent=True)
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
+    log(logger, "calling {}")
     fs_attach(arguments['--name'], sdk, arguments['--force'])
 
 
@@ -179,7 +180,7 @@ def run_config_get():
 
 def run_config_set(arguments):
     import colorama
-    print "Current Config:",
+    log(logger, "Current Config:", raw=True)
     config = config_get()
     if config is None:
         exit()
@@ -187,9 +188,8 @@ def run_config_set(arguments):
     config_case_sensitive = {item.lower(): item for item in config.keys()}
     if key.lower() in config_case_sensitive.keys():
         config_set(config_case_sensitive[key.lower()], value)
-        print colorama.Fore.GREEN + "New Config:",
+        log(logger, "New Config:", level=INFO)
         config_get()
-        print colorama.Fore.RESET
     else:
-        lib.print_red("{} is not valid for your config".format(key))
+        log(logger,"{} is not valid for your config".format(key), color="red", raw=True)
         exit()

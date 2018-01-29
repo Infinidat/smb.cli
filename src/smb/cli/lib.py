@@ -5,6 +5,9 @@ from os import path, pardir
 from infi.credentials_store import CLICredentialsStore
 from smb.cli.config import config_get
 from infi.execute import execute_assert_success, execute
+from smb.cli.smb_log import get_logger, log, log_n_exit
+from logging import DEBUG, INFO, WARNING, ERROR
+logger = get_logger()
 from smb import PROJECTROOT
 
 
@@ -42,7 +45,7 @@ def initiate_store(store_name):
 
 class PreChecks(object):
     def __init__(self):
-        print "Running Prechecks..."
+        log(logger, "Running Prechecks...", level=INFO)
         InfiSdkObjects().get_ibox()
         self.is_cluster_online()
         self.am_I_master()
@@ -55,16 +58,14 @@ class PreChecks(object):
         if cmd.get_stdout().strip() == node():
             return True
         else:
-            print_red("The Node you are running on is NOT the Active Cluster Node")
-            exit()
+            log_n_exit(logger, "The Node you are running on is NOT the Active Cluster Node")
 
     def is_cluster_online(self):
         config = config_get(silent=True)
         cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
                                 '-ExpandProperty', 'state'])
         if cmd.get_stdout().strip() != 'Online':
-            print_red("Cluster group {} NOT in Online state !! state is: {}".format(config['FSRoleName'], cmd.get_stdout().strip()))
-            exit()
+            log_n_exit(logger, "Cluster group {} NOT in Online state !! state is: {}".format(config['FSRoleName'], cmd.get_stdout().strip()))
 
 
 def exit_if_vol_not_mapped(volume):
@@ -93,8 +94,7 @@ def exit_if_vol_not_mapped(volume):
     if not _is_vol_mapped(volume.get_serial()):
         _rescan()
         if not _is_vol_mapped(volume.get_serial()):
-            print_red("Windows couldn't gain access to volume {} which was just mapped".format(volume.get_name()))
-            exit()
+            log_n_exit(logger, "Windows couldn't gain access to volume {} which was just mapped".format(volume.get_name()))
 
 
 def _validate_size(size_str, roundup=False):
@@ -110,8 +110,8 @@ def _validate_size(size_str, roundup=False):
             if (size / byte) / 512.0 != int((size / byte) / 512.0):
                 size = ((int((size / byte) / 512) + 1) * 512) * byte
     except ValueError:
-        print_yellow("{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
-                         "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ")
+        log(logger, "{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
+                         "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ", level=INFO, color="yellow")
         exit()
     return size
 
@@ -133,6 +133,7 @@ def get_path_free_size(full_path):
     size['size'] = total.value * byte
     size['used'] = used * byte
     size['avail'] = free.value * byte
+    log(logger, "sizes are {}".format(size))
     return size
 
 
@@ -205,10 +206,11 @@ def print_red(text):
 
 def approve_danger_op(message, arguments):
     if arguments['--yes'] is False:
-        print_yellow("You are going to perform: {}".format(message))
-        print_yellow("This Operations is considered dangerous!")
+        full_massage = "This Operations is considered dangerous!\n Please Confirm {}".format(message)
+        log(logger, full_massage, level=WARNING, color="yellow")
         proceed = _input("Would you like to proceed [y/N] ").lower() in ('y', 'yes', 'Y', 'YES')
         if not proceed:
+            log(logger, "user didn't confirm danger op")
             exit()
     return
 
@@ -237,5 +239,4 @@ class InfiSdkObjects(object):
         if response.status_code == 200:
             return ibox
         else:
-            print_red("Couldn't connect to InfiniBox with current credentials")
-            exit()
+            log_n_exit(logger, "Couldn't connect to InfiniBox with current credentials")

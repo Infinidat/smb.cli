@@ -1,4 +1,7 @@
 from smb import PROJECTROOT
+from smb.cli.smb_log import get_logger, log, log_n_exit
+from logging import DEBUG, INFO, WARNING, ERROR
+logger = get_logger()
 INFINIDAT_CONFIG_FILE = 'infinidat_config'
 
 
@@ -21,7 +24,7 @@ def change_powershell_config(key, value):
     conf_dir = path.join(PROJECTROOT, pardir, 'Config')
     file = path.join(conf_dir, INFINIDAT_CONFIG_FILE)
     if not read_config(file):
-        exit()
+        log_n_exit(logger, "Problem reading config file")
     for line in fileinput.input(file, inplace=True):
         if "=" not in line:
             print line,
@@ -42,11 +45,11 @@ def read_config(filename):
         if path.exists(conf_dir):
             config = powershell_config_to_dict(path.join(conf_dir, filename))
             if config is None:
-                print_red("config file {} is empty!".format(path.abspath(conf_dir)))
+                log(logger, "config file {} is empty!".format(path.abspath(conf_dir)), level=ERROR, color="yellow")
                 return
             return config
         else:
-            print_red("Couldn't find config file at {}".format(path.abspath(conf_dir)))
+            log(logger, "Couldn't find config file at {}".format(path.abspath(conf_dir)), level=ERROR, color="red")
     except:
         return
 
@@ -55,14 +58,15 @@ def config_get(silent=False):
     config = read_config(INFINIDAT_CONFIG_FILE)
     if silent or not config:
         return config
-    print """
-config:
+    msg = """
+Current Config:
     default MountRoot: {mount}
     default PoolName:  {pool}
 """.format(mount=config['MountRoot'], pool=config['PoolName'])
+    log(logger, msg, level=INFO, raw=True)
     return config
 
 
 def config_set(key, value):
-    print "Changing {} = {}".format(key, value)
+    log(logger, "Changing {} = {}".format(key, value), level=INFO)
     change_powershell_config(key, value)
