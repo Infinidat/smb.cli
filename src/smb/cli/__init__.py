@@ -15,7 +15,7 @@ Usage:
     smbmgr config get
 
 Options:
-    --size=SIZE                      Desired size in capacity units (examples: 10GB, 100MB, 1TB)
+    --size=SIZE                 Desired size in capacity units (examples: 10GB, 100MB, 1TB)
     --pool=POOL_NAME            Pool to provision/search vol on. Use "smbmgr config get/set" to View/Modify
     --size_unit=UNIT            Show sizes in specific format. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
     --force                     Continue on errors (not recommended !). Only for "fs attach"

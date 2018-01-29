@@ -36,12 +36,12 @@ class Fs(object):
     def get_fs_size(self):
         if self.fs_sizes is None:
             return
-        return self.fs_sizes['size'] * KiB
+        return self.fs_sizes['size']
 
     def get_used_size(self):
         if self.fs_sizes is None:
             return
-        return self.fs_sizes['used'] * KiB
+        return self.fs_sizes['used']
 
     def get_num_snaps(self):
         return len(self.ibox_vol.get_snapshots().to_list())

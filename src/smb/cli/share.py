@@ -157,7 +157,7 @@ def get_all_shares_data():
             if share.get_path() == quota['path']:
                 shares.append(Share(share.get_name(), share.get_path(), disabled=quota['Disabled'],
                                     usage=quota['Usage'], size=quota['size'],
-                                    freeonfs=(lib.get_path_free_size(share.get_path())['avail']) * KiB))
+                                    freeonfs=(lib.get_path_free_size(share.get_path())['avail'])))
                 break
     for share in shares_only:
         if share not in shares:
