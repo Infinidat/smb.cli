@@ -76,6 +76,14 @@ def _mountpoint_exist(mountpoint):
         mkdir(mountpoint)
 
 
+def _validate_vol_name(volume_name):
+    '''Spaces in names aren't allowed'''
+    if ' ' in volume_name:
+        log(logger, "Spaces aren't allowed in FS names. Please rename '{}'".format(volume_name),
+            level=INFO, color="yellow")
+        exit()
+
+
 def _validate_pool(pool_name, ibox_sdk, size):
     from infinisdk.core.type_binder import ObjectNotFound
     from capacity import GiB
@@ -256,6 +264,7 @@ def fs_query(units, sdk):
 def fs_attach(volume_name, sdk, force=False):
     ibox = sdk.get_ibox()
     _validate_max_amount_of_volumes(sdk)
+    _validate_vol_name(volume_name)
     volume = _validate_vol(ibox, volume_name)
     if force and lib.is_volume_mapped_to_cluster(volume, sdk):
         pass
@@ -294,6 +303,7 @@ def fs_delete(fsname, sdk):
 
 def fs_create(volume_name, volume_pool, volume_size, sdk):
     _validate_max_amount_of_volumes(sdk)
+    _validate_vol_name(volume_name)
     ibox = sdk.get_ibox()
     volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size, sdk)
     map_vol_to_cluster(volume, sdk)

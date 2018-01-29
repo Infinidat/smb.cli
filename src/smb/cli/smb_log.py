@@ -33,7 +33,7 @@ def log(logger, message, level=DEBUG, color=None, raw=False):
     logger.log(level, message)
     if color == "green":
         print_green(print_format)
-    elif color == "yello":
+    elif color == "yellow":
         print_yellow(print_format)
     elif color == "red":
         print_red(print_format)
