@@ -84,14 +84,19 @@ def _validate_vol_name(volume_name):
         exit()
 
 
-def _validate_pool(pool_name, ibox_sdk, size):
+def _validate_pool_name(pool_name, ibox_sdk):
     from infinisdk.core.type_binder import ObjectNotFound
-    from capacity import GiB
-    spare_size = 1 * GiB
     try:
         pool = ibox_sdk.pools.choose(name=pool_name)
+        return pool
     except ObjectNotFound:
         log_n_exit(logger, "Pool {} couldn't be found on {}".format(pool_name, ibox_sdk.get_name()))
+
+
+def _validate_pool(pool_name, ibox_sdk, size):
+    from capacity import GiB
+    pool = _validate_pool_name(pool_name, ibox_sdk)
+    spare_size = 1 * GiB
     new_free = pool.get_free_virtual_capacity() - size - spare_size
     if int(new_free <= 0):
         log_n_exit(logger, "Pool {} doesn't have enough space to provision {!r}".format(pool_name, size))

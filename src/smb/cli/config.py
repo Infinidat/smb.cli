@@ -60,13 +60,16 @@ def config_get(silent=False):
         return config
     msg = """
 Current Config:
-    default MountRoot: {mount}
     default PoolName:  {pool}
-""".format(mount=config['MountRoot'], pool=config['PoolName'])
+""".format(pool=config['PoolName'])
     log(logger, msg, level=INFO, raw=True)
     return config
 
 
-def config_set(key, value):
+def config_set(key, value, sdk):
+    from fs import _validate_pool_name
+    if key.lower() != 'poolname':
+        log_n_exit(logger, "Currently only PoolName is supported for user config change")
+    _validate_pool_name(value, sdk.get_ibox())
     log(logger, "Changing {} = {}".format(key, value), level=INFO)
     change_powershell_config(key, value)

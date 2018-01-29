@@ -107,7 +107,7 @@ def arguments_to_functions(arguments):
             if arguments['get']:
                 run_config_get()
             if arguments['set']:
-                run_config_set(arguments)
+                run_config_set(arguments, sdk)
     except KeyboardInterrupt:
         log(logger, "Keyboard break recived, exiting")
         exit()
@@ -178,7 +178,7 @@ def run_config_get():
     config_get()
 
 
-def run_config_set(arguments):
+def run_config_set(arguments, sdk):
     import colorama
     log(logger, "Current Config:", raw=True)
     config = config_get()
@@ -187,7 +187,7 @@ def run_config_set(arguments):
     key, value = arguments.get('<key=value>', "").split("=")
     config_case_sensitive = {item.lower(): item for item in config.keys()}
     if key.lower() in config_case_sensitive.keys():
-        config_set(config_case_sensitive[key.lower()], value)
+        config_set(config_case_sensitive[key.lower()], value, sdk)
         log(logger, "New Config:", level=INFO)
         config_get()
     else:
