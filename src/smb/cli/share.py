@@ -80,7 +80,7 @@ def _print_format(val, val_type):
 
 
 def print_share_query(shares):
-    header = 'FSName         ShareName      Path                     Quota       UsedQuota   FilesystemFree'
+    header = 'ShareName      FSName         Path                     Quota       UsedQuota   FilesystemFree'
     log(logger, header, level=INFO, raw=True)
     for share in shares:
         if share.is_limited() is False:
@@ -93,8 +93,8 @@ def print_share_query(shares):
             fsname = "**INVALID**"
         else:
             fsname = share.fs['fsname']
-        line = [_print_format(fsname, 'fsname'),
-                _print_format(share.get_name(), 'sharename'),
+        line = [_print_format(share.get_name(), 'sharename'),
+                _print_format(fsname, 'fsname'),
                 _print_format(share.get_path(), 'path'),
                 _print_format(quota, 'quota'),
                 _print_format(usedquota, 'usedQuota'),
