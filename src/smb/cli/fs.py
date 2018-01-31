@@ -10,6 +10,7 @@ logger = get_logger()
 config = config_get(silent=True)
 
 MAX_ATTACHED_VOLUMES = 100  # maximum amount of simultaneously attached volumes
+MAX_VOL_NAME_LENGTH = 24
 
 class Fs(object):
     def __init__(self, infinibox_vol, sdk, winid=None):
@@ -80,6 +81,10 @@ def _validate_vol_name(volume_name):
     '''Spaces in names aren't allowed'''
     if ' ' in volume_name:
         log(logger, "Spaces aren't allowed in FS names. Please rename '{}'".format(volume_name),
+            level=INFO, color="yellow")
+        exit()
+    if len(volume_name) > MAX_VOL_NAME_LENGTH:
+        log(logger, "'{}' FileSystem name is too long! (can be up to {} characters)".format(volume_name, MAX_VOL_NAME_LENGTH),
             level=INFO, color="yellow")
         exit()
 
