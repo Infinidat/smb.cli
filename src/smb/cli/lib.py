@@ -116,6 +116,29 @@ def _validate_size(size_str, roundup=False):
     return size
 
 
+def is_path_part_of_path(path_a, path_b):
+    '''understands if 2 path have parent children relationship '''
+    def is_a_parant_of_b(a, b):
+        if path.normpath(a) == path.normpath(b):
+            return True
+        elif len(b) <= len(a):
+            return False
+        return is_a_parant_of_b(a, path.dirname(b))
+
+    if is_a_parant_of_b(path_a, path_b) or is_a_parant_of_b(path_b, path_a):
+        return True
+    else:
+        return False
+
+
+def count_shares_on_fs(fs_path, shares_paths):
+    count = 0
+    for share in shares_paths:
+        if is_path_part_of_path(share, fs_path):
+            count = count + 1
+    return count
+
+
 def get_path_free_size(full_path):
     ''' inspired by:
     http://code.activestate.com/recipes/577972-disk-usage/
@@ -201,7 +224,7 @@ def print_red(text):
 
 def approve_danger_op(message, arguments):
     if arguments['--yes'] is False:
-        full_massage = "This Operations is considered dangerous!\n Please Confirm {}".format(message)
+        full_massage = "This Operations is considered dangerous!\nPlease Confirm: {}".format(message)
         log(logger, full_massage, level=WARNING, color="yellow")
         proceed = _input("Would you like to proceed [y/N] ").lower() in ('y', 'yes', 'Y', 'YES')
         if not proceed:

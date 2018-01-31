@@ -103,14 +103,6 @@ def _validate_pool(pool_name, ibox_sdk, size):
     return pool
 
 
-def _count_shares_on_fs(fs_path, shares_paths):
-    count = 0
-    for share in shares_paths:
-        if share.startswith(fs_path):
-            count = count + 1
-    return count
-
-
 def _validate_max_amount_of_volumes(sdk):
     from smb.cli.__version__ import __version__
     cluster = sdk.get_cluster()
@@ -230,7 +222,7 @@ def print_fs_query(mapped_vols, print_units, serial_list, sdk):
         if not win_id:
             win_id = None
         fs = Fs(volume, sdk, win_id)
-        num_of_shares = _count_shares_on_fs(fs.get_mountpoint(), shares_paths)
+        num_of_shares = lib.count_shares_on_fs(fs.get_mountpoint(), shares_paths)
         if print_units:
             fs_size = str((fs.get_fs_size() / print_units)) + " " + str(print_units)[2:]
             used_size = str((fs.get_used_size() / print_units)) + " " + str(print_units)[2:]

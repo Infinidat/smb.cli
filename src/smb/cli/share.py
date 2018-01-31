@@ -169,7 +169,7 @@ def join_fs_and_share(filesystems, shares):
     share_list = []
     for filesystem in filesystems:
         for share in shares:
-            if filesystem['mount'] in share.get_path():
+            if lib.is_path_part_of_path(filesystem['mount'], share.get_path()):
                 share.fs = filesystem
                 share_list.append(share)
     return share_list
