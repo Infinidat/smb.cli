@@ -79,34 +79,38 @@ def _print_format(val, val_type):
     return _val_to_print(str(val), val_type)
 
 
-def print_share_query(shares, detailed=False):
+def print_share_query(shares, units, detailed=False):
     header = 'ShareName      FSName         Path                     Quota       UsedQuota   FilesystemFree'
     log(logger, header, level=INFO, raw=True)
     for share in shares:
-        if share.is_limited() is False:
-            quota = "-"
-            usedquota = "-"
-        else:
-            quota = share.get_size()
-            usedquota = share.get_usage()
+        filesystemfree = share.get_free_space()
+        quota = share.get_size()
+        usedquota = share.get_usage()
+        if units:
+            quota = str(quota / units) + " " + str(units)[2:]
+            usedquota = str(usedquota / units) + " " + str(units)[2:]
+            filesystemfree = str(share.get_free_space() / units) + " " + str(units)[2:]
         if None in [quota, share.get_free_space(), usedquota]:
             fsname = "**INVALID**"
         else:
             fsname = share.fs['fsname']
+        if share.is_limited() is False:
+            quota = "-"
+            usedquota = "-"
         if detailed:
             line = ["{}: {}".format('sharename', share.get_name()),
                     "{}: {}".format('fsname', fsname),
                     "{}: {}".format('path', share.get_path()),
                     "{}: {}".format('quota', quota),
                     "{}: {}".format('usedQuota', usedquota),
-                    "{}: {}".format('filesystemfree', share.get_free_space())]
+                    "{}: {}".format('filesystemfree', filesystemfree )]
         else:
             line = [_print_format(share.get_name(), 'sharename'),
                     _print_format(fsname, 'fsname'),
                     _print_format(share.get_path(), 'path'),
                     _print_format(quota, 'quota'),
                     _print_format(usedquota, 'usedQuota'),
-                    _print_format(share.get_free_space(), 'filesystemfree')]
+                    _print_format(filesystemfree, 'filesystemfree')]
         log(logger, line)
         print " ".join(line)
 
@@ -129,8 +133,8 @@ def _get_share_limit_to_dict():
             shares_quota.append(share_dict)
     for share in shares_quota:
         share['path'] = path.normcase(path.realpath(share['Path']))
-        share['Usage'] = (int(share['Usage']) / 1024) * KiB
-        share['size'] = (int(share['size']) / 1024) * KiB
+        share['Usage'] = (int(share['Usage']) / 1024 / 1024 ) * byte
+        share['size'] = (int(share['size']) / 1024 / 1024) * byte
     return shares_quota
 
 
@@ -276,16 +280,15 @@ def share_unlimit(share_name):
 
 def share_query(units, sdk, detailed):
     from smb.cli.fs import _get_all_fs
-    # TODO: Added print by units
     if units:
-        units = _validate_size(units)
+        units = lib._validate_size(units)
     shares_data = get_all_shares_data()
     filesystems_data = _get_all_fs(sdk)
     shares = join_fs_and_share(filesystems_data, shares_data)
     if len(shares) == 0:
         log(logger, "No Share Are Defined", level=INFO)
         exit()
-    print_share_query(shares, detailed)
+    print_share_query(shares, units, detailed)
 
 
 def share_delete(share_name):

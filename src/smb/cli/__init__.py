@@ -10,14 +10,14 @@ Usage:
     smbmgr share create --name=SHARENAME --path=PATH [--size=SIZE]
     smbmgr share delete --name=SHARENAME [--yes]
     smbmgr share resize --size=SIZE --name=SHARENAME [--yes]
-    smbmgr share query [-d]
+    smbmgr share query [--size_unit=UNIT] [-d]
     smbmgr config set <key=value>
     smbmgr config get
 
 Options:
     --size=SIZE                 Desired size in capacity units (examples: 10GB, 100MB, 1TB)
     --pool=POOL_NAME            Pool to provision/search vol on. Use "smbmgr config get/set" to View/Modify
-    --size_unit=UNIT            Show sizes in specific format. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
+    --size_unit=UNIT            Show sizes in specific format rounded down. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
     --force                     Continue on errors (not recommended !). Only for "fs attach"
     --yes                       Skip confirmation on dangers operations
     -d --detailed               Print names without truncating them
@@ -29,6 +29,7 @@ Note:
 
 {privileges_text}
 """
+import traceback
 from smb.cli.smb_log import get_logger, log, log_n_exit
 from logging import DEBUG, INFO, WARNING, ERROR
 logger = get_logger()
@@ -113,6 +114,7 @@ def arguments_to_functions(arguments):
         log(logger, "Keyboard break recived, exiting")
         exit()
     except Exception as e:
+        log(logger, traceback.format_exc())
         message = '''{} \n(This is Unusual)
 Please collect the Logs from "{}" and contact Infinidat Support'''
         log_n_exit(logger, message.format(e, logger.handlers[0].baseFilename))
