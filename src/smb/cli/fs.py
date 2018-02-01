@@ -6,6 +6,7 @@ from infi.execute import execute
 from smb.cli.config import config_get
 from smb.cli.smb_log import get_logger, log, log_n_exit
 from logging import DEBUG, INFO, WARNING, ERROR
+from smb.cli.__version__ import __version__
 logger = get_logger()
 config = config_get(silent=True)
 
@@ -162,7 +163,9 @@ def create_volume_on_infinibox(volume_name, pool_name, size, sdk):
     pool = _validate_pool(pool_name, ibox, size)
     try:
         log(logger, "Creating Volume {} at {}".format(volume_name, pool_name), level=INFO)
-        return ibox.volumes.create(name=volume_name, pool=pool, size=size, provtype='THIN')
+        volume = ibox.volumes.create(name=volume_name, pool=pool, size=size, provtype='THIN')
+        volume.set_metadata('volume.provisionedby', 'smb.cli-{}'.format(__version__))
+        return volume
     except:
         error = sys.exc_info()[1]
         log_n_exit(logger, "Volume {} couldn't be created. {!r}".format(volume_name, str(error.message)))
