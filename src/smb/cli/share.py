@@ -79,7 +79,7 @@ def _print_format(val, val_type):
     return _val_to_print(str(val), val_type)
 
 
-def print_share_query(shares):
+def print_share_query(shares, detailed=False):
     header = 'ShareName      FSName         Path                     Quota       UsedQuota   FilesystemFree'
     log(logger, header, level=INFO, raw=True)
     for share in shares:
@@ -93,12 +93,20 @@ def print_share_query(shares):
             fsname = "**INVALID**"
         else:
             fsname = share.fs['fsname']
-        line = [_print_format(share.get_name(), 'sharename'),
-                _print_format(fsname, 'fsname'),
-                _print_format(share.get_path(), 'path'),
-                _print_format(quota, 'quota'),
-                _print_format(usedquota, 'usedQuota'),
-                _print_format(share.get_free_space(), 'filesystemfree')]
+        if detailed:
+            line = ["{}: {}".format('sharename', share.get_name()),
+                    "{}: {}".format('fsname', fsname),
+                    "{}: {}".format('path', share.get_path()),
+                    "{}: {}".format('quota', quota),
+                    "{}: {}".format('usedQuota', usedquota),
+                    "{}: {}".format('filesystemfree', share.get_free_space())]
+        else:
+            line = [_print_format(share.get_name(), 'sharename'),
+                    _print_format(fsname, 'fsname'),
+                    _print_format(share.get_path(), 'path'),
+                    _print_format(quota, 'quota'),
+                    _print_format(usedquota, 'usedQuota'),
+                    _print_format(share.get_free_space(), 'filesystemfree')]
         log(logger, line)
         print " ".join(line)
 
@@ -266,7 +274,7 @@ def share_unlimit(share_name):
     log(logger, "{} Size Limit Removed".format(share.get_name()), level=INFO, color="green")
 
 
-def share_query(units, sdk):
+def share_query(units, sdk, detailed):
     from smb.cli.fs import _get_all_fs
     # TODO: Added print by units
     if units:
@@ -277,7 +285,7 @@ def share_query(units, sdk):
     if len(shares) == 0:
         log(logger, "No Share Are Defined", level=INFO)
         exit()
-    print_share_query(shares)
+    print_share_query(shares, detailed)
 
 
 def share_delete(share_name):

@@ -6,11 +6,11 @@ Usage:
     smbmgr fs delete --name=FSNAME [--yes]
     smbmgr fs attach --name=FSNAME [--yes] [--force]
     smbmgr fs detach --name=FSNAME [--yes]
-    smbmgr fs query [--size_unit=UNIT]
+    smbmgr fs query [--size_unit=UNIT] [-d]
     smbmgr share create --name=SHARENAME --path=PATH [--size=SIZE]
     smbmgr share delete --name=SHARENAME [--yes]
     smbmgr share resize --size=SIZE --name=SHARENAME [--yes]
-    smbmgr share query
+    smbmgr share query [-d]
     smbmgr config set <key=value>
     smbmgr config get
 
@@ -20,6 +20,7 @@ Options:
     --size_unit=UNIT            Show sizes in specific format. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
     --force                     Continue on errors (not recommended !). Only for "fs attach"
     --yes                       Skip confirmation on dangers operations
+    -d --detailed               Print names without truncating them
 
 Note:
     For removing share quota limit use 0 as size
@@ -118,7 +119,7 @@ Please collect the Logs from "{}" and contact Infinidat Support'''
 
 def run_fs_query(arguments, sdk):
     from smb.cli.fs import fs_query
-    fs_query(arguments['--size_unit'], sdk)
+    fs_query(arguments['--size_unit'], sdk, arguments['--detailed'])
 
 
 def run_fs_create(arguments, sdk):
@@ -149,7 +150,7 @@ def run_fs_delete(arguments, sdk):
 
 def run_share_query(arguments, sdk):
     from smb.cli.share import share_query
-    share_query(arguments['--size_unit'], sdk)
+    share_query(arguments['--size_unit'], sdk, arguments['--detailed'])
 
 
 def run_share_create(arguments, sdk):

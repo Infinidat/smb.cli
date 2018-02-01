@@ -202,7 +202,7 @@ def _print_format(val, val_type):
     return _trim_or_fill(val, val_type)
 
 
-def print_fs_query(mapped_vols, print_units, serial_list, sdk):
+def print_fs_query(mapped_vols, print_units, serial_list, sdk, detailed=False):
     from smb.cli.share import _share_query_to_share_instance
     shares = _share_query_to_share_instance()
     shares_paths = [share.get_path() for share in shares]
@@ -234,12 +234,20 @@ def print_fs_query(mapped_vols, print_units, serial_list, sdk):
         else:
             fs_size = fs.get_fs_size() if Capacity(0) != fs.get_fs_size() else 0
             used_size = fs.get_used_size() if Capacity(0) != fs.get_used_size() else 0
-        line = [_print_format(fs.get_name(), "name"),
-                _print_format(fs.get_mountpoint(), "mount"),
-                _print_format(str(fs_size), "size",),
-                _print_format(str(used_size), "used_size"),
-                _print_format(str(fs.get_num_snaps()), "snaps"),
-                _print_format(str(num_of_shares), "shares")]
+        if detailed:
+            line = ["{}: {}".format("name", fs.get_name()),
+                    "{}: {}".format("mount", fs.get_mountpoint()),
+                    "{}: {}".format("size", str(fs_size)),
+                    "{}: {}".format("used_size", str(used_size)),
+                    "{}: {}".format("snaps", str(fs.get_num_snaps())),
+                    "{}: {}".format("shares", str(num_of_shares))]
+        else:
+            line = [_print_format(fs.get_name(), "name"),
+                    _print_format(fs.get_mountpoint(), "mount"),
+                    _print_format(str(fs_size), "size",),
+                    _print_format(str(used_size), "used_size"),
+                    _print_format(str(fs.get_num_snaps()), "snaps"),
+                    _print_format(str(num_of_shares), "shares")]
         log(logger, line)
         print " ".join(line)
 
@@ -255,12 +263,12 @@ def _get_all_fs(sdk):
     return [vol for vol in serial_list if 'mount' in vol]
 
 
-def fs_query(units, sdk):
+def fs_query(units, sdk, detailed):
     from smb.cli.lib import _validate_size
     if units:
         units = _validate_size(units)
     serial_list = _winid_serial_table_to_dict()
-    print_fs_query(_get_mapped_vols(sdk), units, serial_list, sdk)
+    print_fs_query(_get_mapped_vols(sdk), units, serial_list, sdk, detailed)
 
 
 def fs_attach(volume_name, sdk, force=False):
