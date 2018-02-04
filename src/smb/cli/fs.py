@@ -74,7 +74,7 @@ def _mountpoint_exist(mountpoint):
     '''Check if mount point exist otherwise create it
     '''
     if not path.exists(mountpoint):
-        log(logger, "Creating mount path {}".format(mountpoint), level=INFO)
+        log(logger, "Creating mount path {}".format(mountpoint), level=DEBUG)
         mkdir(mountpoint)
 
 
@@ -321,6 +321,8 @@ def fs_create(volume_name, volume_pool, volume_size, sdk):
     volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size, sdk)
     map_vol_to_cluster(volume, sdk)
     fs = Fs(volume, sdk)
+    log(logger, "Preparing Filesystem for {}. This might take a while. \nDO NOT EXIT!".format(volume_name),
+        level=INFO, color="yellow")
     ps_cmd._run_prep_vol_to_cluster_scirpt(fs)
     try:
         fs_attach(volume_name, sdk, force=True)

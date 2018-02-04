@@ -1,5 +1,5 @@
 """ smbmgr v{version}
-INFINIDAT SMB Cluster and exports manager
+INFINIDAT SMB Cluster, exports and quotas manager
 
 Usage:
     smbmgr fs create --size=SIZE --name=FSNAME [--pool=POOL_NAME]
@@ -80,7 +80,7 @@ def _use_default_config_if_needed(arguments):
 
 def arguments_to_functions(arguments):
     from lib import PreChecks
-    log(logger, "Arguments recived from user:{}".format(arguments))
+    log(logger, "Arguments received from user:{}".format(arguments))
     if not (arguments['query'] or arguments['config']):
         PreChecks()
     try:
