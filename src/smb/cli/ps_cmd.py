@@ -15,10 +15,11 @@ def run(cmd, error_prefix):
         return result.get_stdout()
     except:
         error = sys.exc_info()[1]
-        log_n_exit(logger, "{} {}".format(error_prefix, error), level=ERROR, color="red")
+        log_n_exit(logger, "{} {}".format(error_prefix, error))
 
 
 def _run_share_create(share_name, share_path):
+    # -FullAccess Everyone
     cmd = ['powershell', '-c', 'New-SmbShare', '-Name', lib.pad_text(share_name),
            '-Path', lib.pad_text(share_path), '-ScopeName', config['FSRoleName'],
            '-ContinuouslyAvailable:$true', '-CachingMode', 'None']

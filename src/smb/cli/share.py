@@ -221,7 +221,7 @@ def _share_create_prechecks(share_name, share_path, sdk):
             exit()
     filesystems = _get_all_fs(sdk)
     for filesystem in filesystems:
-        if filesystem['mount'] in full_path:
+        if lib.is_path_part_of_path(full_path, filesystem['mount']):
             vaild_fs = True
             if lib.is_disk_in_cluster(filesystem['winid']) is False:
                 log_n_exit(logger, "{} isn't part of the SMB Cluster".format(full_path))
@@ -242,7 +242,7 @@ def _share_limit_prechecks_and_set(share_name, size):
         exit()
     if share.get_path() in shares_paths:
         for s in shares:
-            if s.get_path() in share.get_path() or share.get_path() in s.get_path():
+            if lib.is_path_part_of_path(s.get_path(), share.get_path()):
                 if s.is_limited():
                     log(logger, "Recursive Size Limit is NOT Supported in {}".format(__version__), level=WARNING, color="yellow")
                     log(logger, "New Limit {} Conflicts with {}".format(share.get_path(), s.get_path()),
