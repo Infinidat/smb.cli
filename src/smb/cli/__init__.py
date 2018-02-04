@@ -81,7 +81,7 @@ def _use_default_config_if_needed(arguments):
 def arguments_to_functions(arguments):
     from lib import PreChecks
     log(logger, "Arguments received from user:{}".format(arguments))
-    if not (arguments['query'] or arguments['config']):
+    if not arguments['config']:
         PreChecks()
     try:
         if arguments['fs']:
