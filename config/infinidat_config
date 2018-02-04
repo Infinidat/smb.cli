@@ -1,0 +1,8 @@
+@{
+    TempDriveLetter = "Z:\"
+    MountRoot = "G:\"
+    PoolName = "amirr_smb_pool"
+    Cluster = "infismb"
+    IboxAddress = "172.31.64.153"
+    FSRoleName = "smbfs"
+}

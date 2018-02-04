@@ -90,7 +90,7 @@ def _run_get_winid_by_serial(luid):
 def _run_prep_vol_to_cluster_scirpt(fs):
     from smb import PROJECTROOT
     from os import path, pardir
-    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-cluster', 'src', 'prep_vol_to_cluster.ps1'))
+    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, 'powershell', 'prep_vol_to_cluster.ps1'))
     try:
         cmd = execute_assert_success(['powershell', '.', '"' + vol_to_cluster_script.replace('\\', '/') +
                                  '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
@@ -102,7 +102,7 @@ def _run_prep_vol_to_cluster_scirpt(fs):
 def _run_attach_vol_to_cluster_scirpt(fs):
     from smb import PROJECTROOT
     from os import path, pardir
-    attach_vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, pardir, 'SMB-cluster', 'src', 'add_vol_to_cluster.ps1'))
+    attach_vol_to_cluster_script = path.realpath(path.join(PROJECTROOT,'powershell', 'add_vol_to_cluster.ps1'))
     try:
         cmd = execute_assert_success(['powershell', '.', '"' + attach_vol_to_cluster_script.replace('\\', '/') +
                                  '"' + " -DiskNumber {}".format(fs.get_winid())])
