@@ -31,7 +31,7 @@ def change_powershell_config(key, value):
             continue
         line_key, line_val = line.split("=")
         if line_key.strip() == key:
-            print "    {} = {}".format(key, value)
+            print '    {} = "{}"'.format(key, value)
         else:
             print line,
     fileinput.close()
