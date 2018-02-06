@@ -221,17 +221,17 @@ def print_yellow(text):
 def print_red(text):
     print colorama.Fore.RED + text + colorama.Fore.RESET
 
+def approve_operation():
+    proceed = _input("Choose yes or no [y/N] ").lower() in ('y', 'yes')
+    if not proceed:
+        log(logger, "user didn't confirm operation")
+        exit()
 
 def approve_danger_op(message, arguments):
     if arguments['--yes'] is False:
         full_massage = "This Operations is considered dangerous!\nPlease Confirm: {}".format(message)
         log(logger, full_massage, level=WARNING, color="yellow")
-        proceed = _input("Would you like to proceed [y/N] ").lower() in ('y', 'yes', 'Y', 'YES')
-        if not proceed:
-            log(logger, "user didn't confirm danger op")
-            exit()
-    return
-
+        approve_operation()
 
 class InfiSdkObjects(object):
     def __init__(self):

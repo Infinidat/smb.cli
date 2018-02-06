@@ -201,30 +201,39 @@ def exit_if_share_doesnt_exist(share_name):
         log_n_exit(logger, "{} Doesn't Exist.".format(share_name))
     return share
 
-def _share_create_prechecks(share_name, share_path, sdk):
-    from os import path
+def _share_create_prechecks(share_name, share_path, create_path, sdk):
+    from os import path, mkdir
     from smb.cli.fs import _get_all_fs
     existing_shares = _share_query_to_share_instance()
     MAX_PATH_LENTH = 120  # max share char because we are parsing output this might be a problem
     vaild_fs = False
     full_path = path.normcase(path.realpath(share_path))
-    if not path.exists(full_path):
-        log_n_exit(logger, "Path: {} doesn't exist".format(full_path))
-    if len(full_path) > MAX_PATH_LENTH:
-        log(lgger, "Path length is to long. path length of {} characters is currently supported", level=WARNING, color="yellow")
-        exit()
     for share in existing_shares:
         if share.get_name() == share_name:
             log_n_exit(logger, "Share Name Conflict ! {} Share Name Exists".format(share_name))
         if path.realpath(share.get_path()) == full_path:
             log(logger, "'{}' is Already Shared, Lucky You ?!".format(share_path), level=WARNING, color="yellow")
             exit()
+    if not path.exists(full_path):
+        log(logger, "Path: {} doesn't exist.".format(full_path), level=INFO, color="yellow")
+        if not create_path:
+            log(logger, "Would you like to create it ?", level=INFO, color="yellow")
+            lib.approve_operation()
+        log(logger, "Creating {}".format(full_path), level=INFO, color="yellow")
+        mkdir(full_path)
+    if len(full_path) > MAX_PATH_LENTH:
+        log(lgger, "Path length is to long. path length of {} characters is currently supported", level=WARNING, color="yellow")
+        exit()
     filesystems = _get_all_fs(sdk)
     for filesystem in filesystems:
         if lib.is_path_part_of_path(full_path, filesystem['mount']):
+            fs_path = filesystem['mount']
             vaild_fs = True
             if lib.is_disk_in_cluster(filesystem['winid']) is False:
                 log_n_exit(logger, "{} isn't part of the SMB Cluster".format(full_path))
+    if fs_path == full_path:
+        log(logger, "Can't create share on filesystem ROOT (G:\<fs_name>).", level=INFO, color="yellow")
+        exit()
     if vaild_fs is False:
         log_n_exit(logger, "{} is NOT a valid share path".format(full_path))
     return full_path
@@ -251,11 +260,11 @@ def _share_limit_prechecks_and_set(share_name, size):
     ps_cmd._run_share_limit_set(share.get_path(), size)
 
 
-def share_create(share_name, share_path, size, sdk):
+def share_create(share_name, share_path, mkdir, size, sdk):
     if share_path[-1] in ["'", '"']:
         # This if fixes Dir path ends with ticks " e.g. "c:\dir\" without it "\path\" will not work.
         share_path = share_path[0:-1]
-    _share_create_prechecks(share_name, share_path, sdk)
+    _share_create_prechecks(share_name, share_path, mkdir, sdk)
     ps_cmd._run_share_create(share_name, share_path)
     log(logger, "'{}' Share Created".format(share_name), level=INFO, color="green")
     ps_cmd._run_create_share_limit_default(share_path)
