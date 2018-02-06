@@ -32,22 +32,21 @@ Note:
 """
 import traceback
 from smb.cli.smb_log import get_logger, log, log_n_exit
+from smb.cli.config import config_get
 from logging import DEBUG, INFO, WARNING, ERROR
 logger = get_logger()
+
 try:
-    log(logger, "Importing module")
     import sys
-    import docopt
     from smb.cli import lib
-    from smb.cli.config import config_get, config_set
     from smb.cli.__version__ import __version__
-    sdk = lib.InfiSdkObjects()
-    config = sdk.get_local_config()
+    config = config_get(silent=True)
 except KeyboardInterrupt:
-    log(logger, "Keyboard break recived, exiting")
+    log(logger, "Keyboard break received, exiting")
     exit()
 
 def commandline_to_docopt(argv):
+    import docopt
     global output_stream
     lib._init_colorama()
     output_stream = sys.stdout
@@ -66,14 +65,13 @@ def in_cli(argv=sys.argv[1:]):
         arguments = commandline_to_docopt(argv)
         arguments_to_functions(arguments)
     except KeyboardInterrupt:
-        log(logger, "Keyboard break recived, exiting")
+        log(logger, "Keyboard break received, exiting")
         exit()
 
 
 def _use_default_config_if_needed(arguments):
     '''Set default values from config in case the user didn't put them.
     In our case only pool name and mount path '''
-    config = config_get(silent=True)
     if not arguments['--pool']:
         arguments['--pool'] = config['PoolName']
     return arguments
@@ -83,7 +81,7 @@ def arguments_to_functions(arguments):
     from lib import PreChecks
     log(logger, "Arguments received from user:{}".format(arguments))
     if not arguments['config']:
-        PreChecks()
+        sdk = PreChecks()
     try:
         if arguments['fs']:
             arguments = _use_default_config_if_needed(arguments)
@@ -133,7 +131,6 @@ def run_fs_create(arguments, sdk):
 
 def run_fs_attach(arguments, sdk):
     from smb.cli.fs import fs_attach
-    config = config_get(silent=True)
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
     log(logger, "calling {}")
     fs_attach(arguments['--name'], sdk, arguments['--force'])
@@ -183,9 +180,9 @@ def run_config_get():
 
 
 def run_config_set(arguments, sdk):
+    from smb.cli.config import config_set, config_get
     import colorama
     log(logger, "Current Config:", raw=True)
-    config = config_get()
     if config is None:
         exit()
     key, value = arguments.get('<key=value>', "").split("=")
