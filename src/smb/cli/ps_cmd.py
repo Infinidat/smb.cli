@@ -22,7 +22,7 @@ def _run_share_create(share_name, share_path):
     # -FullAccess Everyone
     cmd = ['powershell', '-c', 'New-SmbShare', '-Name', lib.pad_text(share_name),
            '-Path', lib.pad_text(share_path), '-ScopeName', config['FSRoleName'],
-           '-ContinuouslyAvailable:$true', '-CachingMode', 'None']
+           '-ContinuouslyAvailable:$true', '-CachingMode', 'None', '-FullAccess', 'Everyone']
     error_prefix = "New-SmbShare failed with error:"
     run(cmd, error_prefix)
 
