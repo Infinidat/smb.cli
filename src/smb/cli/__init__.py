@@ -17,16 +17,16 @@ Usage:
 Options:
     --size=SIZE                 Desired size in capacity units (examples: 10GB, 100MB, 1TB)
     --pool=POOL_NAME            Pool to provision/search vol on. Use "smbmgr config get/set" to View/Modify
-    --size_unit=UNIT            Show sizes in specific format rounded down. UNIT can be (TB, TiB, GB, GiB, MB, MiB ,etc...)
+    --size_unit=UNIT            Show sizes in specific format rounded down. UNIT can be (TB, TiB, GB, GiB, etc...)
     --mkdir                     Create share dir if doesn't exist
     --force                     Continue on errors (not recommended !). Only for "fs attach"
     --yes                       Skip confirmation on dangers operations
     -d --detailed               Print names without truncating them
 
 Note:
-    For removing share quota limit use 0 as size
-    e.g.
-    smbmgr share resize 0 --name=my_smb_share
+    For removing share quota limit use --size=0
+    Example:
+    smbmgr share resize --size=0 --name=my_smb_share
 
 {privileges_text}
 """
