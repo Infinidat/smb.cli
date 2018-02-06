@@ -133,8 +133,9 @@ def _get_share_limit_to_dict():
             shares_quota.append(share_dict)
     for share in shares_quota:
         share['path'] = path.normcase(path.realpath(share['Path']))
-        share['Usage'] = (int(share['Usage']) / 1024 / 1024 ) * byte
-        share['size'] = (int(share['size']) / 1024 / 1024) * byte
+        share['Usage'] = (int(share['Usage'])) * byte
+        share['size'] = (int(share['size'])) * byte
+    log(logger, "share sizes are {}".format(shares_quota))
     return shares_quota
 
 
