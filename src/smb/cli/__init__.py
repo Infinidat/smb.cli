@@ -78,10 +78,9 @@ def _use_default_config_if_needed(arguments):
 
 
 def arguments_to_functions(arguments):
-    from lib import PreChecks
     log(logger, "Arguments received from user:{}".format(arguments))
     if not arguments['config']:
-        sdk = PreChecks()
+        sdk = lib.prechecks()
     try:
         if arguments['fs']:
             arguments = _use_default_config_if_needed(arguments)

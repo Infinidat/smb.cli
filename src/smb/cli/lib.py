@@ -15,31 +15,31 @@ else:
     _input = raw_input
 
 
-class PreChecks(object):
-    def __init__(self):
-        log(logger, "Running Prechecks...", level=INFO)
-        sdk = InfiSdkObjects()
-        sdk.get_ibox()
-        self.is_cluster_online()
-        self.am_I_master()
-        return sdk
+def prechecks():
+    from smb.cli.ibox_connect import InfiSdkObjects
+    log(logger, "Running Prechecks...", level=INFO)
+    sdk = InfiSdkObjects()
+    sdk.get_ibox()
+    is_cluster_online()
+    am_I_master()
+    return sdk
 
-    def am_I_master(self):
-        from platform import node
-        config = config_get(silent=True)
-        cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
-                                '-ExpandProperty', 'OwnerNode', '|', 'Select-Object', '-ExpandProperty', 'name'])
-        if cmd.get_stdout().strip() == node():
-            return True
-        else:
-            log_n_exit(logger, "The Node you are running on is NOT the Active Cluster Node")
+def am_I_master():
+    from platform import node
+    config = config_get(silent=True)
+    cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
+                            '-ExpandProperty', 'OwnerNode', '|', 'Select-Object', '-ExpandProperty', 'name'])
+    if cmd.get_stdout().strip() == node():
+        return True
+    else:
+        log_n_exit(logger, "The Node you are running on is NOT the Active Cluster Node")
 
-    def is_cluster_online(self):
-        config = config_get(silent=True)
-        cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
-                                '-ExpandProperty', 'state'])
-        if cmd.get_stdout().strip() != 'Online':
-            log_n_exit(logger, "Cluster group {} NOT in Online state !! state is: {}".format(config['FSRoleName'], cmd.get_stdout().strip()))
+def is_cluster_online():
+    config = config_get(silent=True)
+    cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
+                            '-ExpandProperty', 'state'])
+    if cmd.get_stdout().strip() != 'Online':
+        log_n_exit(logger, "Cluster group {} NOT in Online state !! state is: {}".format(config['FSRoleName'], cmd.get_stdout().strip()))
 
 
 def exit_if_vol_not_mapped(volume):
