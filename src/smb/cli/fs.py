@@ -286,7 +286,7 @@ def fs_attach(volume_name, sdk, force=False):
     lib.exit_if_vol_not_mapped(volume)
     fs = Fs(volume, sdk)
     _mountpoint_exist(fs.get_mountpoint())
-    ps_cmd._run_attach_vol_to_cluster_scirpt(fs)
+    ps_cmd._run_attach_vol_to_cluster_script(fs)
     log(logger, "Volume {} Attached to Cluster Successfully.".format(volume_name), level=INFO, color="green")
 
 
@@ -324,10 +324,10 @@ def fs_create(volume_name, volume_pool, volume_size, sdk):
         fs = Fs(volume, sdk)
         log(logger, "Preparing Filesystem for {}. This might take a while. \nDO NOT EXIT!".format(volume_name),
             level=INFO, color="yellow")
-        ps_cmd._run_prep_vol_to_cluster_scirpt(fs)
+        ps_cmd._run_prep_vol_to_cluster_script(fs)
         fs_attach(volume_name, sdk, force=True)
     except:
         e = sys.exc_info
         log(logger, "Something went wrong. Rolling back operations...", level=ERROR, color="red")
-        unmap_volume(volume_name, mountpoint, sdk)
+        unmap_volume(volume_name, fs.get_mountpoint(), sdk)
         delete_volume_on_infinibox(volume_name, sdk)

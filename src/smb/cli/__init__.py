@@ -71,7 +71,7 @@ def in_cli(argv=sys.argv[1:]):
 
 def _use_default_config_if_needed(arguments):
     '''Set default values from config in case the user didn't put them.
-    In our case only pool name and mount path '''
+    In our case only pool '''
     if not arguments['--pool']:
         arguments['--pool'] = config['PoolName']
     return arguments
@@ -79,7 +79,7 @@ def _use_default_config_if_needed(arguments):
 
 def arguments_to_functions(arguments):
     log(logger, "Arguments received from user:{}".format(arguments))
-    if not arguments['config']:
+    if not (arguments['config'] and arguments['get']):
         sdk = lib.prechecks()
     try:
         if arguments['fs']:
@@ -192,4 +192,3 @@ def run_config_set(arguments, sdk):
         config_get()
     else:
         log(logger,"{} is not valid for your config".format(key), color="red", raw=True)
-        exit()

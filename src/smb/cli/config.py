@@ -13,9 +13,7 @@ def powershell_config_to_dict(filename):
     config = {}
     with open(filename, 'r') as file:
         file_content = file.readlines()
-        file_content.pop(0)
-        file_content.pop(-1)
-        for line in file_content:
+        for line in file_content[1:-1]:
             key, val = line.strip().split(' = ')
             config[key] = val.replace('"', '')
         return config
@@ -39,17 +37,14 @@ def change_powershell_config(key, value):
 
 def read_config(filename):
     from smb.cli.lib import print_red
-    try:
-        if path.exists(conf_file):
-            config = powershell_config_to_dict(conf_file)
-            if config is None:
-                log(logger, "config file {} is empty!".format(conf_file, level=ERROR, color="yellow"))
-                return
-            return config
-        else:
-            log(logger, "Couldn't find config file at {}".format(conf_file, level=ERROR, color="red"))
-    except:
-        return
+    if path.exists(filename):
+        config = powershell_config_to_dict(filename)
+        if config is None:
+            log(logger, "config file {} is empty!".format(filename, level=ERROR, color="yellow"))
+            return
+        return config
+    else:
+        log(logger, "Couldn't find config file at {}".format(filename, level=ERROR, color="red"))
 
 
 def config_get(silent=False):

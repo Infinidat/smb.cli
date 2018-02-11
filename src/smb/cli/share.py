@@ -24,13 +24,11 @@ class Share(object):
         return self.name
 
     def is_limited(self):
-        try:
-            if self.disabled == "True":
-                return False
-            if self.disabled == "False":
-                return True
-        except AttributeError:
-            return
+        if self.disabled == "True":
+            return False
+        if self.disabled == "False":
+            return True
+        return
 
     def get_usage(self):
         try:
@@ -69,13 +67,11 @@ def _print_format(val, val_type):
     def _val_to_print(val, val_type):
         if val_type in ["fsname", "sharename"]:
             lenght = 15
-            return _trim_or_fill(val, lenght)
-        if val_type == "path":
+        elif val_type == "path":
             lenght = 25
-            return _trim_or_fill(val, lenght)
         else:
             lenght = 12
-            return _trim_or_fill(val, lenght)
+        return _trim_or_fill(val, lenght)
     return _val_to_print(str(val), val_type)
 
 

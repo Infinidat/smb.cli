@@ -78,15 +78,15 @@ def _validate_size(size_str, roundup=False):
         return 0
     try:
         size = capacity.from_string(size_str)
-        if size == capacity.Capacity(0):
-            return 0
-        if roundup:
-            if (size / byte) / 512.0 != int((size / byte) / 512.0):
-                size = ((int((size / byte) / 512) + 1) * 512) * byte
     except ValueError:
         log(logger, "{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
                          "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ", level=INFO, color="yellow")
         exit()
+    if size == capacity.Capacity(0):
+        return 0
+    if roundup:
+        if (size / byte) / 512.0 != int((size / byte) / 512.0):
+            size = ((int((size / byte) / 512) + 1) * 512) * byte
     return size
 
 
@@ -109,7 +109,7 @@ def count_shares_on_fs(fs_path, shares_paths):
     count = 0
     for share in shares_paths:
         if is_path_part_of_path(share, fs_path):
-            count = count + 1
+            count += 1
     return count
 
 
@@ -145,7 +145,7 @@ def is_disk_in_cluster(disk_win_id):
 
 
 def pad_text(path):
-    return "{}{}{}".format("'", path, "'")
+    return "'{}'".format(path)
 
 
 def is_volume_mapped_to_cluster(volume, sdk):

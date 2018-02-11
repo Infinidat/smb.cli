@@ -2,6 +2,7 @@ import sys
 from capacity import *
 from smb.cli import lib
 from infi.execute import execute_assert_success, execute
+from infi.execute.result import ExecutionError
 from smb.cli import config_get
 from smb.cli.smb_log import get_logger, log, log_n_exit
 from logging import DEBUG, INFO, WARNING, ERROR
@@ -13,7 +14,7 @@ def run(cmd, error_prefix):
     try:
         result = execute_assert_success(cmd)
         return result.get_stdout()
-    except:
+    except ExecutionError:
         error = sys.exc_info()[1]
         log_n_exit(logger, "{} {}".format(error_prefix, error))
 
@@ -75,6 +76,7 @@ def _run_share_limit_delete(share_path):
     # This can be always set over and over from any state
     cmd = ['powershell', '-c', 'Remove-FSRMQuota', '-Path', lib.pad_text(share_path), '-Confirm:$False']
     error_prefix = "Remove-FSRMQuota failed with error:"
+    run(cmd, error_prefix)
 
 
 def _run_get_winid_by_serial(luid):
@@ -84,11 +86,13 @@ def _run_get_winid_by_serial(luid):
                           str(luid), '|', 'Select-Object -ExpandProperty number']).get_stdout()
     try:
         return int(cmd_output)
-    except:
+    except ValueError:
         return
 
 
-def _run_prep_vol_to_cluster_scirpt(fs):
+def _run_prep_vol_to_cluster_script(fs):
+    # TODO: move to run
+    # TODO: handle the cases where fs.get_winid is None
     from smb import PROJECTROOT
     from os import path, pardir
     vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, 'powershell', 'prep_vol_to_cluster.ps1'))
@@ -100,7 +104,8 @@ def _run_prep_vol_to_cluster_scirpt(fs):
         log_n_exit(logger, "{} failed with error: {}".format(vol_to_cluster_script, error))
 
 
-def _run_attach_vol_to_cluster_scirpt(fs):
+def _run_attach_vol_to_cluster_script(fs):
+    # TODO: move to run
     from smb import PROJECTROOT
     from os import path, pardir
     attach_vol_to_cluster_script = path.realpath(path.join(PROJECTROOT,'powershell', 'add_vol_to_cluster.ps1'))
