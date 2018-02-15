@@ -96,6 +96,8 @@ def _run_prep_vol_to_cluster_script(fs):
     from smb import PROJECTROOT
     from os import path, pardir
     vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, 'powershell', 'prep_vol_to_cluster.ps1'))
+    if fs.get_winid() is None:
+        log_n_raise(logger, "Can't add volume {} to cluster".format(fs.get_name()), level=ERROR, color="red")
     try:
         cmd = execute_assert_success(['powershell', '.', '"' + vol_to_cluster_script.replace('\\', '/') +
                                  '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
