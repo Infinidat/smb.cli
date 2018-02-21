@@ -5,6 +5,8 @@ from os import path, mkdir
 from smb import PROJECTROOT
 LOG_FILE = 'smb_cli.log'
 
+class SmbCliExited(Exception):
+    pass
 
 def get_logger():
     LOG_FILE_FORMAT = '%(asctime)s %(levelname)s: %(message)s'
@@ -23,24 +25,30 @@ def get_logger():
     return logger
 
 
-def log(logger, message, level=DEBUG, color=None, raw=False):
+def log(logger, message, level=DEBUG, color=None, raw=False, disable_print=False):
     from smb.cli.lib import print_green, print_yellow, print_red
+    logger.log(level, message)
+    if disable_print or level == DEBUG:
+        return
+
     CONSOLE_FORMAT = '{}: {}'.format(logging.getLevelName(level), message)
     if raw:
         print_format = message
     else:
         print_format = CONSOLE_FORMAT
-    logger.log(level, message)
     if color == "green":
         print_green(print_format)
     elif color == "yellow":
         print_yellow(print_format)
     elif color == "red":
         print_red(print_format)
-    elif level > DEBUG:
+    else:
         print print_format
 
 
-def log_n_exit(logger, message):
-    log(logger, message, level=ERROR, color="red")
-    exit()
+def log_n_raise(logger, message, level=ERROR, disable_print=False):
+    if level == ERROR:
+        log(logger, message, level=ERROR, color="red", disable_print=disable_print)
+    if level == WARNING:
+        log(logger, message, level=WARNING, color="yellow", disable_print=disable_print)
+    raise SmbCliExited()

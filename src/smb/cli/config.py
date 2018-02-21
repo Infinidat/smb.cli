@@ -1,5 +1,5 @@
 from smb import PROJECTROOT
-from smb.cli.smb_log import get_logger, log, log_n_exit
+from smb.cli.smb_log import get_logger, log, log_n_raise
 from logging import DEBUG, INFO, WARNING, ERROR
 from os import path
 logger = get_logger()
@@ -22,7 +22,7 @@ def powershell_config_to_dict(filename):
 def change_powershell_config(key, value):
     import fileinput
     if not read_config(conf_file):
-        log_n_exit(logger, "Problem reading config file")
+        log_n_raise(logger, "Problem reading config file")
     for line in fileinput.input(conf_file, inplace=True):
         if "=" not in line:
             print line,
@@ -62,7 +62,7 @@ Current Config:
 def config_set(key, value, sdk):
     from fs import _validate_pool_name
     if key.lower() != 'poolname':
-        log_n_exit(logger, "Currently only PoolName is supported for user config change")
+        log_n_raise(logger, "Currently only PoolName is supported for user config change")
     _validate_pool_name(value, sdk.get_ibox())
     log(logger, "Changing {} = {}".format(key, value), level=INFO)
     change_powershell_config(key, value)

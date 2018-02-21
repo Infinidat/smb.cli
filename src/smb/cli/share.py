@@ -1,6 +1,6 @@
 from capacity import *
 from smb.cli import lib, ps_cmd
-from smb.cli.smb_log import get_logger, log, log_n_exit
+from smb.cli.smb_log import get_logger, log, log_n_raise, SmbCliExited
 from logging import DEBUG, INFO, WARNING, ERROR
 logger = get_logger()
 
@@ -31,28 +31,16 @@ class Share(object):
         return
 
     def get_usage(self):
-        try:
-            return self.usage
-        except AttributeError:
-            return
+        return self.usage
 
     def get_size(self):
-        try:
-            return self.size
-        except AttributeError:
-            return
+        return self.size
 
     def get_free_space(self):
-        try:
-            return self.freeonfs
-        except AttributeError:
-            return
+        return self.freeonfs
 
     def get_fs(self):
-        try:
-            return self.fs
-        except AttributeError:
-            return
+        return self.fs
 
 
 def _print_format(val, val_type):
@@ -99,7 +87,7 @@ def print_share_query(shares, units, detailed=False):
                     "{}: {}".format('path', share.get_path()),
                     "{}: {}".format('quota', quota),
                     "{}: {}".format('usedQuota', usedquota),
-                    "{}: {}".format('filesystemfree', filesystemfree )]
+                    "{}: {}".format('filesystemfree', filesystemfree)]
         else:
             line = [_print_format(share.get_name(), 'sharename'),
                     _print_format(fsname, 'fsname'),
@@ -195,57 +183,58 @@ def exit_if_share_doesnt_exist(share_name):
     shares = get_all_shares_data()
     share = find_share_from_list_of_shares(shares, share_name=share_name)
     if share is None:
-        log_n_exit(logger, "{} Doesn't Exist.".format(share_name))
+        log_n_raise(logger, "{} Doesn't Exist.".format(share_name))
     return share
 
 def _share_create_prechecks(share_name, share_path, create_path, sdk):
-    from os import path, mkdir
+    from os import path, makedirs, pardir
     from smb.cli.fs import _get_all_fs
     existing_shares = _share_query_to_share_instance()
     MAX_PATH_LENTH = 120  # max share char because we are parsing output this might be a problem
     vaild_fs = False
-    full_path = path.normcase(path.realpath(share_path))
+    full_path = path.normcase(share_path)
     for share in existing_shares:
         if share.get_name() == share_name:
-            log_n_exit(logger, "Share Name Conflict ! {} Share Name Exists".format(share_name))
+            log_n_raise(logger, "Share Name Conflict ! {} Share Name Exists".format(share_name))
         if path.realpath(share.get_path()) == full_path:
-            log(logger, "'{}' is Already Shared, Lucky You ?!".format(share_path), level=WARNING, color="yellow")
-            exit()
+            log_n_raise(logger, "'{}' is Already Shared, Lucky You ?!".format(share_path), level=WARNING)
     if not path.exists(full_path):
         log(logger, "Path: {} doesn't exist.".format(full_path), level=INFO, color="yellow")
         if not create_path:
             log(logger, "Would you like to create it ?", level=INFO, color="yellow")
             lib.approve_operation()
         log(logger, "Creating {}".format(full_path), level=INFO, color="yellow")
-        mkdir(full_path)
+        makedirs(full_path)
     if len(full_path) > MAX_PATH_LENTH:
-        log(lgger, "Path length is to long. path length of {} characters is currently supported", level=WARNING, color="yellow")
-        exit()
+        log_n_raise(lgger, "Path length is to long. path length of {} characters is currently supported", level=WARNING)
     filesystems = _get_all_fs(sdk)
     for filesystem in filesystems:
         if lib.is_path_part_of_path(full_path, filesystem['mount']):
             fs_path = filesystem['mount']
             vaild_fs = True
             if lib.is_disk_in_cluster(filesystem['winid']) is False:
-                log_n_exit(logger, "{} isn't part of the SMB Cluster".format(full_path))
-    if fs_path == full_path:
-        log(logger, "Can't create share on filesystem ROOT (G:\<fs_name>).", level=INFO, color="yellow")
-        exit()
+                log_n_raise(logger, "{} isn't part of the SMB Cluster".format(full_path))
     if vaild_fs is False:
-        log_n_exit(logger, "{} is NOT a valid share path".format(full_path))
+        log_n_raise(logger, "{} is NOT a valid share path".format(full_path))
+    if fs_path == full_path:
+        log_n_raise(logger, "Can't create share on filesystem ROOT (G:\<fs_name>).", level=WARNING)
     return full_path
 
 
 def _share_limit_prechecks_and_set(share_name, size):
     from smb.cli.__version__ import __version__
-    # TODO: check max vol size and make sure limit isn't bigger then it (GregT)
-    shares = get_all_shares_data()
+    shares_data = get_all_shares_data()
+    filesystems_data = _get_all_fs(sdk)
+    shares = join_fs_and_share(filesystems_data, shares_data)
     shares_paths = [share.get_path() for share in shares]
     share = find_share_from_list_of_shares(shares, share_name=share_name)
+    fs_size = share.get_fs().get_fs_size()
+    if size >= fs_size:
+        log_n_raise(logger, "No use in limiting share to {} when Filesystem size is {}".format(size, fs_size), level=WARNING)
     if share.is_limited():
         log(logger, "{} is Already Size Limited, Changing Size to {}".format(share_name, size), level=INFO)
         ps_cmd._run_share_limit_set(share.get_path(), size)
-        exit()
+        return
     if share.get_path() in shares_paths:
         for s in shares:
             if lib.is_path_part_of_path(s.get_path(), share.get_path()):
@@ -253,7 +242,7 @@ def _share_limit_prechecks_and_set(share_name, size):
                     log(logger, "Recursive Size Limit is NOT Supported in {}".format(__version__), level=WARNING, color="yellow")
                     log(logger, "New Limit {} Conflicts with {}".format(share.get_path(), s.get_path()),
                         level=WARNING, color="yellow")
-                    exit()
+                    return
     ps_cmd._run_share_limit_set(share.get_path(), size)
 
 
@@ -266,20 +255,19 @@ def share_create(share_name, share_path, mkdir, size, sdk):
     log(logger, "'{}' Share Created".format(share_name), level=INFO, color="green")
     ps_cmd._run_create_share_limit_default(share_path)
     if size == 0:
-        exit()
+        return
     share_limit(share_path, size)
 
 
-def share_limit(share_name, size):
-    _share_limit_prechecks_and_set(share_name, size)
+def share_limit(share_name, size, sdk):
+    _share_limit_prechecks_and_set(share_name, size, sdk)
     log(logger, "{} limited to {}".format(share_name, size), level=INFO, color="green")
 
 
 def share_unlimit(share_name):
     share = exit_if_share_doesnt_exist(share_name)
     if share.is_limited() is False:
-        log(logger, "{} doesn't have a limit on it.".format(share['share_name']), level=WARNING, color="yellow")
-        exit()
+        log_n_raise(logger, "{} doesn't have a limit on it.".format(share['share_name']), level=WARNING)
     ps_cmd._run_share_limit_set_default(share.get_path())
     log(logger, "{} Size Limit Removed".format(share.get_name()), level=INFO, color="green")
 
@@ -293,7 +281,7 @@ def share_query(units, sdk, detailed):
     shares = join_fs_and_share(filesystems_data, shares_data)
     if len(shares) == 0:
         log(logger, "No Share Are Defined", level=INFO)
-        exit()
+        return
     print_share_query(shares, units, detailed)
 
 

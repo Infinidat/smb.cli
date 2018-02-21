@@ -52,4 +52,4 @@ class InfiSdkObjects(object):
         if response.status_code == 200:
             return ibox
         else:
-            log_n_exit(logger, "Couldn't connect to InfiniBox with current credentials")
+            log_n_raise(logger, "Couldn't connect to InfiniBox with current credentials")

@@ -3,17 +3,10 @@ import colorama
 from os import path, pardir
 from smb.cli.config import config_get
 from infi.execute import execute_assert_success, execute
-from smb.cli.smb_log import get_logger, log, log_n_exit
+from smb.cli.smb_log import get_logger, log, log_n_raise
 from logging import DEBUG, INFO, WARNING, ERROR
 logger = get_logger()
 from smb import PROJECTROOT
-
-
-if sys.version_info > (3, 0):
-    _input = input
-else:
-    _input = raw_input
-
 
 def prechecks():
     from smb.cli.ibox_connect import InfiSdkObjects
@@ -32,14 +25,14 @@ def am_I_master():
     if cmd.get_stdout().strip() == node():
         return True
     else:
-        log_n_exit(logger, "The Node you are running on is NOT the Active Cluster Node")
+        log_n_raise(logger, "The Node you are running on is NOT the Active Cluster Node")
 
 def is_cluster_online():
     config = config_get(silent=True)
     cmd = execute_assert_success(['powershell', '-c', 'Get-ClusterGroup', '-name', config['FSRoleName'], '|', 'Select-Object',
                             '-ExpandProperty', 'state'])
     if cmd.get_stdout().strip() != 'Online':
-        log_n_exit(logger, "Cluster group {} NOT in Online state !! state is: {}".format(config['FSRoleName'], cmd.get_stdout().strip()))
+        log_n_raise(logger, "Cluster group {} NOT in Online state !! state is: {}".format(config['FSRoleName'], cmd.get_stdout().strip()))
 
 
 def exit_if_vol_not_mapped(volume):
@@ -68,7 +61,7 @@ def exit_if_vol_not_mapped(volume):
     if not _is_vol_mapped(volume.get_serial()):
         _rescan()
         if not _is_vol_mapped(volume.get_serial()):
-            log_n_exit(logger, "Windows couldn't gain access to volume {} which was just mapped".format(volume.get_name()))
+            log_n_raise(logger, "Windows couldn't gain access to volume {} which was just mapped".format(volume.get_name()))
 
 
 def _validate_size(size_str, roundup=False):
@@ -79,9 +72,8 @@ def _validate_size(size_str, roundup=False):
     try:
         size = capacity.from_string(size_str)
     except ValueError:
-        log(logger, "{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
-                         "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ", level=INFO, color="yellow")
-        exit()
+        log_n_raise(logger, "{} is an invalid capacity ! Please try one of the following:\n".format(size_str) +
+                         "<number> KB, KiB, MB, MiB, GB, GiB, TB, TiB... ", level=WARNING)
     if size == capacity.Capacity(0):
         return 0
     if roundup:
@@ -162,13 +154,13 @@ def get_privileges_text():
     return "This tool requires administrative privileges."
 
 
-def wait_for_ms_volume_removal(volume_name):
+def cluster_remove_ms_volume_and_wait(volume_name):
     from time import sleep
     from smb.cli import ps_cmd
     ps_cmd._run_remove_vol_from_cluster(volume_name)
     timeout = 10
     for i in range(10):
-        vols_in_cluster = ps_cmd._check_if_vol_in_cluster(volume_name).splitlines()
+        vols_in_cluster = ps_cmd._get_cluster_vols().splitlines()
         if volume_name in vols_in_cluster:
             sleep(1)
         else:
@@ -196,10 +188,15 @@ def print_red(text):
     print colorama.Fore.RED + text + colorama.Fore.RESET
 
 def approve_operation():
+    if sys.version_info > (3, 0):
+        _input = input
+    else:
+        _input = raw_input
+
     proceed = _input("Choose yes or no [y/N] ").lower() in ('y', 'yes')
     if not proceed:
-        log(logger, "user didn't confirm operation")
-        exit()
+        log_n_raise(logger, "user didn't confirm operation")
+
 
 def approve_danger_op(message, arguments):
     if arguments['--yes'] is False:

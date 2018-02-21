@@ -4,6 +4,8 @@ Param([Parameter(Mandatory=$true)][int]$DiskNumber)
 . 'C:\Program Files\INFINIDAT\smb.cli\powershell\lib_cluster.ps1'
 $LogID = $MyInvocation.MyCommand.Name.Substring(0, $MyInvocation.MyCommand.Name.Length - 4)
 
+Update-HostStorageCache
+
 # Pre-checks
 $Disk = Get-Disk -Number $DiskNumber
 $PartitionStyle =  $Disk | Select-Object -ExpandProperty PartitionStyle
@@ -25,8 +27,16 @@ $cluster_disk = Get-ClusterResource | where resourcetype -eq "Physical Disk" | w
 if ( $cluster_disk.length -ne 1 ) {
     LogErrorAndExit "Something not right" -from $LogID
 }
-# Need to add back ExecAssertNLog not working because $cluster_disk has spaces
+
+LogWrite ("all access paths: " + $all_access) -from $LogID
 move-ClusterResource -Name $cluster_disk  -Group $INFINIDAT_CONFIG.FSRoleName
 $MountPath = Join-Path $INFINIDAT_CONFIG.MountRoot $VolumeNameArray[1]
-$Partition | Add-PartitionAccessPath -AccessPath $MountPath -PassThru -ErrorAction Stop
+$MountPath = $MountPath.ToLower() + '\'
+$AccessPaths =  foreach ($Path in $Partition.AccessPaths) { $Path.ToLower() }
+LogWrite ("MountPath: " + $MountPath + "len:" + $AccessPaths.Count + "AccessPaths: " + $AccessPaths) -from $LogID
+if ( $MountPath -NotIn $AccessPaths) {
+    # still Fails once in a while so we allow errors in this command and verify all is ok in python
+    $Partition | Add-PartitionAccessPath -AccessPath $MountPath -PassThru -ErrorAction SilentlyContinue
+}
+LogWrite ("AccessPaths: " + $AccessPaths) -from $LogID
 return $Partition

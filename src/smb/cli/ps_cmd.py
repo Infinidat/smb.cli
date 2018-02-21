@@ -4,7 +4,7 @@ from smb.cli import lib
 from infi.execute import execute_assert_success, execute
 from infi.execute.result import ExecutionError
 from smb.cli import config_get
-from smb.cli.smb_log import get_logger, log, log_n_exit
+from smb.cli.smb_log import get_logger, log, log_n_raise
 from logging import DEBUG, INFO, WARNING, ERROR
 logger = get_logger()
 config = config_get(silent=True)
@@ -16,11 +16,10 @@ def run(cmd, error_prefix):
         return result.get_stdout()
     except ExecutionError:
         error = sys.exc_info()[1]
-        log_n_exit(logger, "{} {}".format(error_prefix, error))
+        log_n_raise(logger, "{} {}".format(error_prefix, error), disable_print=True)
 
 
 def _run_share_create(share_name, share_path):
-    # -FullAccess Everyone
     cmd = ['powershell', '-c', 'New-SmbShare', '-Name', lib.pad_text(share_name),
            '-Path', lib.pad_text(share_path), '-ScopeName', config['FSRoleName'],
            '-ContinuouslyAvailable:$true', '-CachingMode', 'None', '-FullAccess', 'Everyone']
@@ -103,7 +102,7 @@ def _run_prep_vol_to_cluster_script(fs):
                                  '"' + " -DiskNumber {} -MountPath {}".format(fs.get_winid(), fs.get_mountpoint())])
     except:
         error = sys.exc_info()[1]
-        log_n_exit(logger, "{} failed with error: {}".format(vol_to_cluster_script, error))
+        log_n_raise(logger, "{} failed with error: {}".format(vol_to_cluster_script, error), disable_print=True)
 
 
 def _run_attach_vol_to_cluster_script(fs):
@@ -116,12 +115,44 @@ def _run_attach_vol_to_cluster_script(fs):
                                  '"' + " -DiskNumber {}".format(fs.get_winid())])
     except:
         error = sys.exc_info()[1]
-        log_n_exit(logger, "{} failed with error: {}".format(attach_vol_to_cluster_script, error))
+        log_n_raise(logger, "{} failed with error: {}".format(attach_vol_to_cluster_script, error), disable_print=True)
+
+
+def _perform_cluster_failover():
+    ''' Used only for tests'''
+    cmd = ['powershell', '-c', 'Move-ClusterGroup', '-Name', lib.pad_text(config['FSRoleName'])]
+    error_prefix = "Move-ClusterGroup failed with error:"
+    run(cmd, error_prefix)
+
+
+def _run_offline_disk(disk_number):
+    from os import remove
+    if disk_number is None:
+        return
+
+    def _create_disk_part_script(disk_number):
+        with open('tmp_diskpart', 'w') as fd:
+            fd.write("select disk {}\n".format(str(disk_number)))
+            fd.write("offline disk")
+
+    _create_disk_part_script(disk_number)
+    cmd = ['diskpart.exe', '/s', 'tmp_diskpart']
+    error_prefix = "diskpart failed with error:"
+    run(cmd, error_prefix)
+    remove('tmp_diskpart')
+
 
 def _run_move_cluster_volume_offline(vol_name):
     cmd = ['powershell', '-c', 'Stop-ClusterResource', '-Name', lib.pad_text(str(vol_name)),
            '-Cluster', lib.pad_text(config['FSRoleName'])]
     error_prefix = "Stop-ClusterResource failed with error:"
+    run(cmd, error_prefix)
+
+
+def _run_move_volume_from_smb_cluster(vol_name):
+    cmd = ['powershell', '-c', 'Move-ClusterResource', '-Name', lib.pad_text(str(vol_name)),
+           '-Group "Cluster Group"']
+    error_prefix = "Move-ClusterResource failed with error:"
     run(cmd, error_prefix)
 
 
@@ -133,8 +164,8 @@ def _run_remove_vol_from_cluster(vol_name):
     run(cmd, error_prefix)
 
 
-def _check_if_vol_in_cluster(vol_name):
+def _get_cluster_vols():
     cmd = ['powershell', '-c', 'Get-ClusterResource', '-Cluster', lib.pad_text(config['FSRoleName']),
-           '|', 'Select-Object', '-ExpandProperty Name']
+           '|', 'where OwnerGroup -eq', lib.pad_text(config['FSRoleName']), '|', 'Select-Object', '-ExpandProperty Name']
     error_prefix = "Get-ClusterResource failed with error:"
     return run(cmd, error_prefix)

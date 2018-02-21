@@ -30,20 +30,15 @@ Note:
 
 {privileges_text}
 """
+import sys
 import traceback
-from smb.cli.smb_log import get_logger, log, log_n_exit
+from smb.cli.smb_log import get_logger, log, log_n_raise, SmbCliExited
 from smb.cli.config import config_get
 from logging import DEBUG, INFO, WARNING, ERROR
+from smb.cli import lib
+from smb.cli.__version__ import __version__
 logger = get_logger()
-
-try:
-    import sys
-    from smb.cli import lib
-    from smb.cli.__version__ import __version__
-    config = config_get(silent=True)
-except KeyboardInterrupt:
-    log(logger, "Keyboard break received, exiting")
-    exit()
+config = config_get(silent=True)
 
 def commandline_to_docopt(argv):
     import docopt
@@ -57,16 +52,18 @@ def commandline_to_docopt(argv):
                                         version=__version__, help=True, argv=argv)
     except docopt.DocoptExit as e:
         log(logger, e, level=INFO, raw=True)
-        log_n_exit(logger, "Invalid Arguments")
+        log(logger, "Invalid Arguments", level=ERROR, color="red")
+        log(logger, argv)
+        exit(1)
 
 
 def in_cli(argv=sys.argv[1:]):
     try:
         arguments = commandline_to_docopt(argv)
-        arguments_to_functions(arguments)
+        return arguments_to_functions(arguments)
     except KeyboardInterrupt:
         log(logger, "Keyboard break received, exiting")
-        exit()
+        return 1
 
 
 def _use_default_config_if_needed(arguments):
@@ -79,9 +76,9 @@ def _use_default_config_if_needed(arguments):
 
 def arguments_to_functions(arguments):
     log(logger, "Arguments received from user:{}".format(arguments))
-    if not (arguments['config'] and arguments['get']):
-        sdk = lib.prechecks()
     try:
+        if not (arguments['config'] and arguments['get']):
+            sdk = lib.prechecks()
         if arguments['fs']:
             arguments = _use_default_config_if_needed(arguments)
             if arguments['create']:
@@ -100,7 +97,7 @@ def arguments_to_functions(arguments):
             if arguments['query']:
                 run_share_query(arguments, sdk)
             if arguments['resize']:
-                run_share_resize(arguments)
+                run_share_resize(arguments, sdk)
             if arguments['delete']:
                 run_share_delete(arguments)
         if arguments['config']:
@@ -109,13 +106,16 @@ def arguments_to_functions(arguments):
             if arguments['set']:
                 run_config_set(arguments, sdk)
     except KeyboardInterrupt:
-        log(logger, "Keyboard break recived, exiting")
-        exit()
+        log(logger, "Keyboard break received, exiting")
+        return
+    except SmbCliExited:
+        return 1
     except Exception as e:
         log(logger, traceback.format_exc())
         message = '''{} \n(This is Unusual)
 Please collect the Logs from "{}" and contact Infinidat Support'''
-        log_n_exit(logger, message.format(e, logger.handlers[0].baseFilename))
+        log(logger, message.format(e, logger.handlers[0].baseFilename), level=ERROR, color="red")
+        return 1
 
 def run_fs_query(arguments, sdk):
     from smb.cli.fs import fs_query
@@ -158,13 +158,13 @@ def run_share_create(arguments, sdk):
     share_create(arguments['--name'], arguments['--path'], arguments['--mkdir'], size, sdk)
 
 
-def run_share_resize(arguments):
+def run_share_resize(arguments, sdk):
     from smb.cli.share import share_limit, share_unlimit
     size = lib._validate_size(arguments['--size'], roundup=True)
     if size != 0:
         lib.approve_danger_op("Size limiting to share {}".format(arguments['--name']), arguments)
-        share_limit(arguments['--name'], size)
-        exit()
+        share_limit(arguments['--name'], size, sdk)
+        return
     share_unlimit(arguments['--name'])
 
 
@@ -183,12 +183,12 @@ def run_config_set(arguments, sdk):
     import colorama
     log(logger, "Current Config:", raw=True)
     if config is None:
-        exit()
+        return
     key, value = arguments.get('<key=value>', "").split("=")
     config_case_sensitive = {item.lower(): item for item in config.keys()}
-    if key.lower() in config_case_sensitive.keys():
-        config_set(config_case_sensitive[key.lower()], value, sdk)
-        log(logger, "New Config:", level=INFO)
-        config_get()
-    else:
+    if key.lower() not in config_case_sensitive.keys():
         log(logger,"{} is not valid for your config".format(key), color="red", raw=True)
+        return
+    config_set(config_case_sensitive[key.lower()], value, sdk)
+    log(logger, "New Config:", level=INFO)
+    config_get()

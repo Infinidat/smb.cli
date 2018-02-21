@@ -17,7 +17,7 @@ function LogWrite([string]$logstring, [string]$from=$LogID, $level="INFO", $sile
     if ( -NOT $silent ) {
         Write-Host $logstring
     }
-    $date = Get-Date -Format o
+    $date = (Get-Date -Format o).subString(0,22)
     Add-content $Logfile -value ($date + " - " + $level + ": " +"(" + $from + ")" + $logstring)
 }
 

@@ -2,9 +2,9 @@ import sys
 from capacity import *
 from os import path, mkdir
 from smb.cli import lib, ps_cmd
-from infi.execute import execute
+from infi.execute import execute, ExecutionError
 from smb.cli.config import config_get
-from smb.cli.smb_log import get_logger, log, log_n_exit
+from smb.cli.smb_log import get_logger, log, log_n_raise
 from logging import DEBUG, INFO, WARNING, ERROR
 from smb.cli.__version__ import __version__
 logger = get_logger()
@@ -81,13 +81,11 @@ def _mountpoint_exist(mountpoint):
 def _validate_vol_name(volume_name):
     '''Spaces in names aren't allowed'''
     if ' ' in volume_name:
-        log(logger, "Spaces aren't allowed in FS names. Please rename '{}'".format(volume_name),
-            level=INFO, color="yellow")
-        exit()
+        log_n_raise(logger, "Spaces aren't allowed in FS names. Please rename '{}'".format(volume_name),
+            level=WARNING)
     if len(volume_name) > MAX_VOL_NAME_LENGTH:
-        log(logger, "'{}' FileSystem name is too long! (can be up to {} characters)".format(volume_name, MAX_VOL_NAME_LENGTH),
-            level=INFO, color="yellow")
-        exit()
+        log_n_raise(logger, "'{}' FileSystem name is too long! (can be up to {} characters)".format(volume_name, MAX_VOL_NAME_LENGTH),
+            level=WARNING)
 
 
 def _validate_pool_name(pool_name, ibox_sdk):
@@ -96,7 +94,7 @@ def _validate_pool_name(pool_name, ibox_sdk):
         pool = ibox_sdk.pools.choose(name=pool_name)
         return pool
     except ObjectNotFound:
-        log_n_exit(logger, "Pool {} couldn't be found on {}".format(pool_name, ibox_sdk.get_name()))
+        log_n_raise(logger, "Pool {} couldn't be found on {}".format(pool_name, ibox_sdk.get_name()))
 
 
 def _validate_pool(pool_name, ibox_sdk, size):
@@ -105,7 +103,7 @@ def _validate_pool(pool_name, ibox_sdk, size):
     spare_size = 1 * GiB
     new_free = pool.get_free_virtual_capacity() - size - spare_size
     if int(new_free <= 0):
-        log_n_exit(logger, "Pool {} doesn't have enough space to provision {!r}".format(pool_name, size))
+        log_n_raise(logger, "Pool {} doesn't have enough space to provision {!r}".format(pool_name, size))
     return pool
 
 
@@ -114,8 +112,7 @@ def _validate_max_amount_of_volumes(sdk):
     cluster = sdk.get_cluster()
     if len(cluster.get_luns()) >= MAX_ATTACHED_VOLUMES:
         message = "Version: {} Supports only up to {} simultaneously attached Volumes"
-        log(logger, message.format(__version__, MAX_ATTACHED_VOLUMES), color="yellow", level=WARNING)
-        exit()
+        log_n_raise(logger, message.format(__version__, MAX_ATTACHED_VOLUMES), level=WARNING)
 
 
 def _validate_vol(ibox_sdk, volume_name):
@@ -123,7 +120,7 @@ def _validate_vol(ibox_sdk, volume_name):
     try:
         return ibox_sdk.volumes.choose(name=volume_name)
     except ObjectNotFound:
-        log_n_exit(logger, "Volume {} couldn't be found on {}".format(volume_name, ibox_sdk.get_name()))
+        log_n_raise(logger, "Volume {} couldn't be found on {}".format(volume_name, ibox_sdk.get_name()))
 
 
 def unmap_vol_from_cluster_infinibox(volume_name, sdk):
@@ -137,16 +134,19 @@ def unmap_vol_from_cluster_infinibox(volume_name, sdk):
 def unmap_volume(volume_name, mountpoint, sdk):
     import os
     unmap_vol_from_cluster_infinibox(volume_name, sdk)
-    os.rmdir(mountpoint)
+    if os.listdir(mountpoint) == []:
+        os.rmdir(mountpoint)
+    else:
+        log(logger, "Not Deleting {} Because it's Not Empty".format(mountpoint), color="yellow", level=INFO)
 
 
-def map_vol_to_cluster(volume, sdk):
+def map_vol_to_cluster_infinibox(volume, sdk):
     cluster = sdk.get_cluster()
     try:
         mapping = cluster.map_volume(volume)
     except:
         error = sys.exc_info()[1]
-        log_n_exit(logger, "Couldn't Map Volume {} to {}! {!r}".format(volume.get_name(),
+        log_n_raise(logger, "Couldn't Map Volume {} to {}! {!r}".format(volume.get_name(),
                                                                        cluster.get_name(), str(error.message)))
     log(logger, "Mapping {} to {}".format(volume.get_name(), cluster.get_name()), level=INFO)
 
@@ -168,7 +168,7 @@ def create_volume_on_infinibox(volume_name, pool_name, size, sdk):
         return volume
     except:
         error = sys.exc_info()[1]
-        log_n_exit(logger, "Volume {} couldn't be created. {!r}".format(volume_name, str(error.message)))
+        log_n_raise(logger, "Volume {} couldn't be created. {!r}".format(volume_name, str(error.message)))
 
 
 def _get_mapped_vols(sdk):
@@ -213,14 +213,18 @@ def print_fs_query(mapped_vols, print_units, serial_list, sdk, detailed=False):
         ibox = mapped_vols[0].get_system()
     else:
         log(logger, "No volumes are mapped", level=INFO, raw=True)
-        exit()
+        return
+    vols_in_cluster = ps_cmd._get_cluster_vols().splitlines()
     header = 'Name               Mount              Size         Used Size    Snaps   Shares'
     log(logger, header, level=INFO, raw=True)
     for volume in mapped_vols:
+        volume_name = volume.get_name()
         # Hide irrelevant stuff
-        if volume.get_name() in ["mountpoint", "witness"]:
+        if volume_name in ["mountpoint", "witness"]:
             continue
-        if not path.exists(_get_default_mountpoint(volume.get_name())):
+        if volume_name not in vols_in_cluster:
+            continue
+        if not path.exists(_get_default_mountpoint(volume_name)):
             continue
         volume_serial = volume.get_serial()
         for disk in serial_list:
@@ -258,10 +262,14 @@ def print_fs_query(mapped_vols, print_units, serial_list, sdk, detailed=False):
 def _get_all_fs(sdk):
     serial_list = _winid_serial_table_to_dict()
     mapped_vols = _get_mapped_vols(sdk)
+    vols_in_cluster = ps_cmd._get_cluster_vols().splitlines()
     for disk in serial_list:
         for ibox_vol in mapped_vols:
+            vol_name = ibox_vol.get_name()
+            if vol_name not in vols_in_cluster:
+                continue
             if disk['serial'] == ibox_vol.get_serial():
-                disk['fsname'] = ibox_vol.get_name()
+                disk['fsname'] = vol_name
                 disk['mount'] = _get_default_mountpoint(disk['fsname'])
     return [vol for vol in serial_list if 'mount' in vol]
 
@@ -271,7 +279,11 @@ def fs_query(units, sdk, detailed):
     if units:
         units = _validate_size(units)
     serial_list = _winid_serial_table_to_dict()
-    print_fs_query(_get_mapped_vols(sdk), units, serial_list, sdk, detailed)
+    vols_in_cluster = ps_cmd._get_cluster_vols().splitlines()
+    ibox_mapped_vols = _get_mapped_vols(sdk)
+    mapped_vols = [vol.get_name() for vol in ibox_mapped_vols]
+
+    print_fs_query(ibox_mapped_vols, units, serial_list, sdk, detailed)
 
 
 def fs_attach(volume_name, sdk, force=False):
@@ -282,11 +294,14 @@ def fs_attach(volume_name, sdk, force=False):
     if force and lib.is_volume_mapped_to_cluster(volume, sdk):
         pass
     else:
-        map_vol_to_cluster(volume, sdk)
+        map_vol_to_cluster_infinibox(volume, sdk)
     lib.exit_if_vol_not_mapped(volume)
     fs = Fs(volume, sdk)
     _mountpoint_exist(fs.get_mountpoint())
-    ps_cmd._run_attach_vol_to_cluster_script(fs)
+    try:
+        ps_cmd._run_attach_vol_to_cluster_script(fs)
+    except:
+        log_n_raise(logger, "Couldn't add {} to SMB Cluster".format(volume_name))
     log(logger, "Volume {} Attached to Cluster Successfully.".format(volume_name), level=INFO, color="green")
 
 
@@ -295,7 +310,7 @@ def fs_detach(fsname, sdk):
     from smb.cli.share import share_delete
     all_filesystems = _get_all_fs(sdk)
     if fsname not in [fs['fsname'] for fs in all_filesystems]:
-        log_n_exit(logger, "{} Does NOT exist. Typo?".format(fsname))
+        log_n_raise(logger, "{} Does NOT exist. Typo?".format(fsname))
     volume = _validate_vol(sdk.get_ibox(), fsname)
     volume_name = volume.get_name()
     fs = Fs(volume, sdk)
@@ -305,8 +320,10 @@ def fs_detach(fsname, sdk):
         if s.get_fs()['fsname'] == fs.get_name():
             share_delete(s.get_name())
     ps_cmd._run_move_cluster_volume_offline(volume_name)
-    lib.wait_for_ms_volume_removal(volume_name)
-    unmap_volume(volume_name, _get_default_mountpoint(volume_name), sdk)
+    ps_cmd._run_move_volume_from_smb_cluster(volume_name)
+    lib.cluster_remove_ms_volume_and_wait(volume_name)
+    # ps_cmd._run_offline_disk(fs.get_winid())
+    unmap_vol_from_cluster_infinibox(volume_name, sdk)
 
 
 def fs_delete(fsname, sdk):
@@ -318,16 +335,35 @@ def fs_create(volume_name, volume_pool, volume_size, sdk):
     _validate_max_amount_of_volumes(sdk)
     _validate_vol_name(volume_name)
     ibox = sdk.get_ibox()
+    volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size, sdk)
     try:
-        volume = create_volume_on_infinibox(volume_name, volume_pool, volume_size, sdk)
-        map_vol_to_cluster(volume, sdk)
-        fs = Fs(volume, sdk)
-        log(logger, "Preparing Filesystem for {}. This might take a while. \nDO NOT EXIT!".format(volume_name),
+        map_vol_to_cluster_infinibox(volume, sdk)
+        lib.exit_if_vol_not_mapped(volume)
+    except:
+        unmap_volume(volume_name, _get_default_mountpoint(volume_name), sdk)
+        delete_volume_on_infinibox(volume_name, sdk)
+    fs = Fs(volume, sdk)
+    log(logger, "Preparing Filesystem for {}. This might take a while. \nDO NOT EXIT!".format(volume_name),
             level=INFO, color="yellow")
+    if fs.get_winid() is None:
+        fs = Fs(volume, sdk)
+    try:
         ps_cmd._run_prep_vol_to_cluster_script(fs)
+    except:
+        unmap_volume(volume_name, _get_default_mountpoint(volume_name), sdk)
+        delete_volume_on_infinibox(volume_name, sdk)
+    try:
         fs_attach(volume_name, sdk, force=True)
     except:
         e = sys.exc_info
         log(logger, "Something went wrong. Rolling back operations...", level=ERROR, color="red")
-        unmap_volume(volume_name, fs.get_mountpoint(), sdk)
+        try:
+            ps_cmd._run_move_cluster_volume_offline(volume_name)
+        except:
+            pass
+        try:
+            lib.cluster_remove_ms_volume_and_wait(volume_name)
+        except:
+            pass
+        unmap_volume(volume_name, _get_default_mountpoint(volume_name), sdk)
         delete_volume_on_infinibox(volume_name, sdk)
