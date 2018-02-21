@@ -38,7 +38,10 @@ from logging import DEBUG, INFO, WARNING, ERROR
 from smb.cli import lib
 from smb.cli.__version__ import __version__
 logger = get_logger()
-config = config_get(silent=True)
+try:
+    config = config_get(silent=True)
+except SmbCliExited:
+    exit(1)
 
 def commandline_to_docopt(argv):
     import docopt

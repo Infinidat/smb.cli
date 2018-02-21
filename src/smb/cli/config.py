@@ -40,11 +40,11 @@ def read_config(filename):
     if path.exists(filename):
         config = powershell_config_to_dict(filename)
         if config is None:
-            log(logger, "config file {} is empty!".format(filename, level=ERROR, color="yellow"))
+            log_n_raise(logger, "config file {} is empty!".format(filename, level=ERROR, color="yellow"))
             return
         return config
     else:
-        log(logger, "Couldn't find config file at {}".format(filename, level=ERROR, color="red"))
+        log_n_raise(logger, "Couldn't find config file at {}".format(filename, level=ERROR))
 
 
 def config_get(silent=False):
