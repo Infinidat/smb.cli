@@ -2,7 +2,7 @@ import sys
 from capacity import *
 from os import path, mkdir
 from smb.cli import lib, ps_cmd
-from infi.execute import execute, ExecutionError
+from infi.execute import execute
 from smb.cli.config import config_get
 from smb.cli.smb_log import get_logger, log, log_n_raise
 from logging import DEBUG, INFO, WARNING, ERROR
@@ -319,11 +319,12 @@ def fs_detach(fsname, sdk):
     for s in full_share_list:
         if s.get_fs()['fsname'] == fs.get_name():
             share_delete(s.get_name())
+    ps_cmd._run_remove_partition_access_path(fs.get_winid(), fs.get_mountpoint())
     ps_cmd._run_move_cluster_volume_offline(volume_name)
     ps_cmd._run_move_volume_from_smb_cluster(volume_name)
     lib.cluster_remove_ms_volume_and_wait(volume_name)
     # ps_cmd._run_offline_disk(fs.get_winid())
-    unmap_vol_from_cluster_infinibox(volume_name, sdk)
+    unmap_volume(volume_name, fs.get_mountpoint(), sdk)
 
 
 def fs_delete(fsname, sdk):
