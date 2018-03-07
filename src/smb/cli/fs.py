@@ -4,7 +4,7 @@ from os import path, mkdir
 from smb.cli import lib, ps_cmd
 from infi.execute import execute
 from smb.cli.config import config_get
-from smb.cli.smb_log import get_logger, log, log_n_raise
+from smb.cli.smb_log import get_logger, log, log_n_raise, SmbCliExited
 from logging import DEBUG, INFO, WARNING, ERROR
 from smb.cli.__version__ import __version__
 logger = get_logger()
@@ -134,10 +134,14 @@ def unmap_vol_from_cluster_infinibox(volume_name, sdk):
 def unmap_volume(volume_name, mountpoint, sdk):
     import os
     unmap_vol_from_cluster_infinibox(volume_name, sdk)
-    if os.listdir(mountpoint) == []:
-        os.rmdir(mountpoint)
-    else:
-        log(logger, "Not Deleting {} Because it's Not Empty".format(mountpoint), color="yellow", level=INFO)
+    try:
+        if os.listdir(mountpoint) == []:
+            os.rmdir(mountpoint)
+        else:
+            log(logger, "Not Deleting {} Because it's Not Empty".format(mountpoint), color="yellow", level=INFO)
+    except Exception as e:
+        log(logger, "{}".format(e))
+
 
 
 def map_vol_to_cluster_infinibox(volume, sdk):
@@ -341,8 +345,10 @@ def fs_create(volume_name, volume_pool, volume_size, sdk):
         map_vol_to_cluster_infinibox(volume, sdk)
         lib.exit_if_vol_not_mapped(volume)
     except:
+        log(logger, "Something went wrong. Rolling back operations...", level=ERROR, color="red")
         unmap_volume(volume_name, _get_default_mountpoint(volume_name), sdk)
         delete_volume_on_infinibox(volume_name, sdk)
+        raise SmbCliExited
     fs = Fs(volume, sdk)
     log(logger, "Preparing Filesystem for {}. This might take a while. \nDO NOT EXIT!".format(volume_name),
             level=INFO, color="yellow")
@@ -351,12 +357,13 @@ def fs_create(volume_name, volume_pool, volume_size, sdk):
     try:
         ps_cmd._run_prep_vol_to_cluster_script(fs)
     except:
+        log(logger, "Something went wrong. Rolling back operations...", level=ERROR, color="red")
         unmap_volume(volume_name, _get_default_mountpoint(volume_name), sdk)
         delete_volume_on_infinibox(volume_name, sdk)
+        raise SmbCliExited
     try:
         fs_attach(volume_name, sdk, force=True)
     except:
-        e = sys.exc_info
         log(logger, "Something went wrong. Rolling back operations...", level=ERROR, color="red")
         try:
             ps_cmd._run_move_cluster_volume_offline(volume_name)
@@ -368,3 +375,5 @@ def fs_create(volume_name, volume_pool, volume_size, sdk):
             pass
         unmap_volume(volume_name, _get_default_mountpoint(volume_name), sdk)
         delete_volume_on_infinibox(volume_name, sdk)
+        raise SmbCliExited
+
