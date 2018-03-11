@@ -1,8 +1,8 @@
 @{
     TempDriveLetter = "Z:\"
     MountRoot = "G:\"
-    PoolName = "amirr_smb_pool"
-    Cluster = "infismb"
-    IboxAddress = "172.31.64.153"
-    FSRoleName = "smbfs"
+    PoolName = "<infinibox_pool>"
+    Cluster = "<infinibox_cluster>"
+    IboxAddress = "<infinibox_address>"
+    FSRoleName = "<ms_role_name>"
 }
