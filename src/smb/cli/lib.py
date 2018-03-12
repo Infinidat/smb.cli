@@ -177,15 +177,16 @@ def _init_colorama():
 
 
 def print_green(text):
-    print colorama.Fore.GREEN + text + colorama.Fore.RESET
+    print colorama.Fore.LIGHTGREEN_EX + colorama.Back.BLACK + text + colorama.Fore.RESET + colorama.Back.RESET
 
 
 def print_yellow(text):
-    print colorama.Fore.YELLOW + text + colorama.Fore.RESET
+    print colorama.Fore.LIGHTYELLOW_EX + colorama.Back.BLACK + text + colorama.Fore.RESET + colorama.Back.RESET
 
 
 def print_red(text):
-    print colorama.Fore.RED + text + colorama.Fore.RESET
+    print colorama.Fore.LIGHTRED_EX + colorama.Back.BLACK + text + colorama.Fore.RESET + colorama.Back.RESET
+
 
 def approve_operation():
     if sys.version_info > (3, 0):
