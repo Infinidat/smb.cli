@@ -213,14 +213,12 @@ def print_fs_query(mapped_vols, print_units, serial_list, sdk, detailed=False):
     from smb.cli.share import _share_query_to_share_instance
     shares = _share_query_to_share_instance()
     shares_paths = [share.get_path() for share in shares]
-    if len(mapped_vols) > 2:
-        ibox = mapped_vols[0].get_system()
-    else:
-        log(logger, "No volumes are mapped", level=INFO, raw=True)
+    if len(mapped_vols) <= 2:
+        log(logger, "No InfiniBox Volumes are Mapped to the Cluster", level=INFO)
         return
+    ibox = mapped_vols[0].get_system()
     vols_in_cluster = ps_cmd._get_cluster_vols().splitlines()
-    header = 'Name               Mount              Size         Used Size    Snaps   Shares'
-    log(logger, header, level=INFO, raw=True)
+    print_output = ""
     for volume in mapped_vols:
         volume_name = volume.get_name()
         # Hide irrelevant stuff
@@ -231,12 +229,11 @@ def print_fs_query(mapped_vols, print_units, serial_list, sdk, detailed=False):
         if not path.exists(_get_default_mountpoint(volume_name)):
             continue
         volume_serial = volume.get_serial()
+        win_id = None
         for disk in serial_list:
             if disk['serial'] == volume_serial:
                 win_id = disk['winid']
                 break
-        if not win_id:
-            win_id = None
         fs = Fs(volume, sdk, win_id)
         num_of_shares = lib.count_shares_on_fs(fs.get_mountpoint(), shares_paths)
         if print_units:
@@ -260,7 +257,13 @@ def print_fs_query(mapped_vols, print_units, serial_list, sdk, detailed=False):
                     _print_format(str(fs.get_num_snaps()), "snaps"),
                     _print_format(str(num_of_shares), "shares")]
         log(logger, line)
-        print " ".join(line)
+        print_output = print_output + " ".join(line) + '\n'
+    if print_output.splitlines() == []:
+        log(logger, "No InfiniBox Volumes are Mapped to the Cluster", level=INFO)
+        return
+    header = 'Name               Mount              Size         Used Size    Snaps   Shares'
+    log(logger, header, level=INFO, raw=True)
+    print print_output
 
 
 def _get_all_fs(sdk):
@@ -283,10 +286,7 @@ def fs_query(units, sdk, detailed):
     if units:
         units = _validate_size(units)
     serial_list = _winid_serial_table_to_dict()
-    vols_in_cluster = ps_cmd._get_cluster_vols().splitlines()
     ibox_mapped_vols = _get_mapped_vols(sdk)
-    mapped_vols = [vol.get_name() for vol in ibox_mapped_vols]
-
     print_fs_query(ibox_mapped_vols, units, serial_list, sdk, detailed)
 
 
