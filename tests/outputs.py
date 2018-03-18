@@ -1,4 +1,4 @@
-not_active_node = '''INFO: Running Prechecks...\r\n\x1b[31mERROR: The Node you are running on is NOT the Active Cluster Node\x1b[39m\r\n'''
+not_active_node = '''ERROR: The Node you are running on is NOT the Active Cluster Node'''
 
 fs_query_empty = '''INFO: Running Prechecks...
 No volumes are mapped'''

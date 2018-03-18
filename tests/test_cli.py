@@ -10,7 +10,7 @@ class TestCli(unittest.TestCase):
         # make sure we are on the Active Node to start with
         cmd = ['smbmgr', 'fs', 'query']
         result = execute(cmd)
-        if outputs.not_active_node == result.get_stdout():
+        if outputs.not_active_node in result.get_stdout():
             ps_cmd._perform_cluster_failover()
 
     # def tearDown(self):
@@ -38,7 +38,7 @@ class TestCli(unittest.TestCase):
 
     def test_fs_query(self):
         cmd = ['smbmgr', 'fs', 'query']
-        result = execute_assert_success(cmd)
+        result = execute(cmd)
         self.assertIn(outputs.fs_query_header, result.get_stdout())
         ps_cmd._perform_cluster_failover()
         result = execute_assert_success(cmd)
