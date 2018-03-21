@@ -325,9 +325,7 @@ def fs_detach(fsname, sdk):
             share_delete(s.get_name())
     ps_cmd._run_remove_partition_access_path(fs.get_winid(), fs.get_mountpoint())
     ps_cmd._run_move_cluster_volume_offline(volume_name)
-    ps_cmd._run_move_volume_from_smb_cluster(volume_name)
     lib.cluster_remove_ms_volume_and_wait(volume_name)
-    # ps_cmd._run_offline_disk(fs.get_winid())
     unmap_volume(volume_name, fs.get_mountpoint(), sdk)
 
 
