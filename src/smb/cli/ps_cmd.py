@@ -10,12 +10,12 @@ config = config_get(silent=True)
 
 
 def run(cmd, error_prefix):
-    try:
-        result = execute_assert_success(cmd)
+    result = execute(cmd)
+    if result.get_returncode() == 0:
         return result.get_stdout()
-    except ExecutionError:
-        error = sys.exc_info()[1]
-        log_n_raise(logger, "{} {}".format(error_prefix, error), disable_print=True)
+    if "You do not have administrative privileges on the cluster" in result.get_stderr():
+        log_n_raise(logger, "{} Cluster Permissions issue".format(error_prefix))
+    log_n_raise(logger, "{} {}".format(error_prefix, result.get_stderr()), disable_print=True)
 
 
 def _run_share_create(share_name, share_path):
