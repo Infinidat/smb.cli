@@ -45,6 +45,8 @@ class InfiSdkObjects(object):
 
     def ibox_login(self):
         '''tries to connect using credintal store'''
+        from smb.cli.smb_log import get_logger, log_n_raise
+        logger = get_logger()
         store = initiate_store(self.config['IboxAddress'])
         ibox = infinisdk.InfiniBox(str(self.config['IboxAddress']),
                                    auth=(store.get_username(), store.get_password()))

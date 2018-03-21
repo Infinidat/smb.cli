@@ -20,7 +20,7 @@ Options:
     --size_unit=UNIT            Show sizes in specific format rounded down. UNIT can be (TB, TiB, GB, GiB, etc...)
     --mkdir                     Create share dir if doesn't exist
     --force                     Continue on errors (not recommended !). Only for "fs attach"
-    --yes                       Skip confirmation on dangers operations
+    --yes                       Skip confirmation on dangerous operations
     -d --detailed               Print names without truncating them
 
 Note:
@@ -32,7 +32,7 @@ Note:
 """
 import sys
 import traceback
-from smb.cli.smb_log import get_logger, log, log_n_raise, SmbCliExited
+from smb.cli.smb_log import get_logger, log, SmbCliExited
 from smb.cli.config import config_get
 from logging import DEBUG, INFO, WARNING, ERROR
 from smb.cli import lib
@@ -183,14 +183,13 @@ def run_config_get():
 
 def run_config_set(arguments, sdk):
     from smb.cli.config import config_set, config_get
-    import colorama
     log(logger, "Current Config:", raw=True)
     if config is None:
         return
     key, value = arguments.get('<key=value>', "").split("=")
     config_case_sensitive = {item.lower(): item for item in config.keys()}
     if key.lower() not in config_case_sensitive.keys():
-        log(logger,"{} is not valid for your config".format(key), color="red", raw=True)
+        log(logger, "{} is not valid for your config".format(key), color="red", raw=True)
         return
     config_set(config_case_sensitive[key.lower()], value, sdk)
     log(logger, "New Config:", level=INFO)

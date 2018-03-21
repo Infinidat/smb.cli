@@ -143,7 +143,6 @@ def unmap_volume(volume_name, mountpoint, sdk):
         log(logger, "{}".format(e))
 
 
-
 def map_vol_to_cluster_infinibox(volume, sdk):
     cluster = sdk.get_cluster()
     try:
@@ -377,4 +376,3 @@ def fs_create(volume_name, volume_pool, volume_size, sdk):
         unmap_volume(volume_name, _get_default_mountpoint(volume_name), sdk)
         delete_volume_on_infinibox(volume_name, sdk)
         raise SmbCliExited
-

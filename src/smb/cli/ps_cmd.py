@@ -2,7 +2,6 @@ import sys
 from capacity import *
 from smb.cli import lib
 from infi.execute import execute_assert_success, execute
-from infi.execute.result import ExecutionError
 from smb.cli import config_get
 from smb.cli.smb_log import get_logger, log_n_raise
 from logging import DEBUG, INFO, WARNING, ERROR

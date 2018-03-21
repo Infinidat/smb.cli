@@ -5,8 +5,8 @@ from smb.cli.config import config_get
 from infi.execute import execute_assert_success, execute
 from smb.cli.smb_log import get_logger, log, log_n_raise
 from logging import DEBUG, INFO, WARNING, ERROR
-logger = get_logger()
 from smb import PROJECTROOT
+logger = get_logger()
 
 def prechecks():
     from smb.cli.ibox_connect import InfiSdkObjects
@@ -110,7 +110,6 @@ def get_path_free_size(full_path):
     http://code.activestate.com/recipes/577972-disk-usage/
     '''
     import ctypes
-    import sys
     from capacity import byte
     size = {}
     _, total, free = ctypes.c_ulonglong(), ctypes.c_ulonglong(), ctypes.c_ulonglong()
@@ -159,7 +158,7 @@ def cluster_remove_ms_volume_and_wait(volume_name):
     from smb.cli import ps_cmd
     ps_cmd._run_remove_vol_from_cluster(volume_name)
     timeout = 10
-    for i in range(10):
+    for i in range(timeout):
         vols_in_cluster = ps_cmd._get_cluster_vols().splitlines()
         if volume_name in vols_in_cluster:
             sleep(1)

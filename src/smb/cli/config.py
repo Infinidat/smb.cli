@@ -36,7 +36,6 @@ def change_powershell_config(key, value):
 
 
 def read_config(filename):
-    from smb.cli.lib import print_red
     if path.exists(filename):
         config = powershell_config_to_dict(filename)
         if config is None:

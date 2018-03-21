@@ -15,8 +15,8 @@ def get_logger():
     if not path.exists(log_folder):
         mkdir(log_folder)
     logger = logging.getLogger('smb.cli')
-    file = logging.handlers.RotatingFileHandler(path.join( log_folder, LOG_FILE ),
-                                                maxBytes=(3*1024*1024), backupCount=5)
+    file = logging.handlers.RotatingFileHandler(path.join(log_folder, LOG_FILE),
+                                                maxBytes=(3 * 1024 * 1024), backupCount=5)
     file.setLevel(DEBUG)
     file.setFormatter(log_formatter)
     if not logger.handlers:

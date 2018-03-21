@@ -1,7 +1,7 @@
 from capacity import *
 from smb.cli import lib, ps_cmd
 from smb.cli.fs import _get_all_fs
-from smb.cli.smb_log import get_logger, log, log_n_raise, SmbCliExited
+from smb.cli.smb_log import get_logger, log, log_n_raise
 from logging import DEBUG, INFO, WARNING, ERROR
 logger = get_logger()
 
@@ -47,11 +47,11 @@ class Share(object):
 def _print_format(val, val_type):
     def _trim_or_fill(val, lenght):
         if len(val) == lenght:
-            return val
+            return val + " "
         if len(val) > lenght:
-            return val[0:(lenght - 3)] + "..."
+            return val[0:(lenght - 3)] + "... "
         if len(val) < lenght:
-            return val.ljust(lenght - 1)
+            return val.ljust(lenght + 1)
 
     def _val_to_print(val, val_type):
         if val_type in ["fsname", "sharename"]:
@@ -65,7 +65,7 @@ def _print_format(val, val_type):
 
 
 def print_share_query(shares, units, detailed=False):
-    header = 'ShareName      FSName         Path                     Quota       UsedQuota   FilesystemFree'
+    header = 'ShareName       FSName          Path                      Quota        UsedQuota    FilesystemFree'
     log(logger, header, level=INFO, raw=True)
     for share in shares:
         filesystemfree = share.get_free_space()
@@ -97,7 +97,7 @@ def print_share_query(shares, units, detailed=False):
                     _print_format(usedquota, 'usedQuota'),
                     _print_format(filesystemfree, 'filesystemfree')]
         log(logger, line)
-        print " ".join(line)
+        print "".join(line)
 
 
 def _get_share_limit_to_dict():
@@ -188,7 +188,7 @@ def exit_if_share_doesnt_exist(share_name):
     return share
 
 def _share_create_prechecks(share_name, share_path, create_path, sdk):
-    from os import path, makedirs, pardir
+    from os import path, makedirs
     existing_shares = _share_query_to_share_instance()
     MAX_PATH_LENTH = 120  # max share char because we are parsing output this might be a problem
     vaild_fs = False
