@@ -278,6 +278,7 @@ def _get_all_fs(sdk):
             if disk['serial'] == ibox_vol.get_serial():
                 disk['fsname'] = vol_name
                 disk['mount'] = _get_default_mountpoint(disk['fsname'])
+                disk['sizes'] = lib.get_path_free_size(disk['mount'])
     return [vol for vol in serial_list if 'mount' in vol]
 
 

@@ -1,5 +1,6 @@
 from capacity import *
 from smb.cli import lib, ps_cmd
+from smb.cli.fs import _get_all_fs
 from smb.cli.smb_log import get_logger, log, log_n_raise, SmbCliExited
 from logging import DEBUG, INFO, WARNING, ERROR
 logger = get_logger()
@@ -188,7 +189,6 @@ def exit_if_share_doesnt_exist(share_name):
 
 def _share_create_prechecks(share_name, share_path, create_path, sdk):
     from os import path, makedirs, pardir
-    from smb.cli.fs import _get_all_fs
     existing_shares = _share_query_to_share_instance()
     MAX_PATH_LENTH = 120  # max share char because we are parsing output this might be a problem
     vaild_fs = False
@@ -221,14 +221,14 @@ def _share_create_prechecks(share_name, share_path, create_path, sdk):
     return full_path
 
 
-def _share_limit_prechecks_and_set(share_name, size):
+def _share_limit_prechecks_and_set(share_name, size, sdk):
     from smb.cli.__version__ import __version__
     shares_data = get_all_shares_data()
     filesystems_data = _get_all_fs(sdk)
     shares = join_fs_and_share(filesystems_data, shares_data)
     shares_paths = [share.get_path() for share in shares]
     share = find_share_from_list_of_shares(shares, share_name=share_name)
-    fs_size = share.get_fs().get_fs_size()
+    fs_size = share.get_fs()['sizes']['size']
     if size >= fs_size:
         log_n_raise(logger, "No use in limiting share to {} when Filesystem size is {}".format(size, fs_size), level=WARNING)
     if share.is_limited():
@@ -273,7 +273,6 @@ def share_unlimit(share_name):
 
 
 def share_query(units, sdk, detailed):
-    from smb.cli.fs import _get_all_fs
     if units:
         units = lib._validate_size(units)
     shares_data = get_all_shares_data()
