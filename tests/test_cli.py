@@ -6,25 +6,22 @@ share_names = ['share1', 'share 2', 'long_share_3_and    more']
 fs_names = ['fs1', 'fs2', 'fs3']
 
 class TestCli(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         # make sure we are on the Active Node to start with
         cmd = ['smbmgr', 'fs', 'query']
         result = execute(cmd)
         if outputs.not_active_node in result.get_stdout():
             ps_cmd._perform_cluster_failover()
 
-    # def tearDown(self):
-        # from smb.cli.ibox_connect import InfiSdkObjects
-        # sdk = InfiSdkObjects()
-        # ibox = sdk.get_ibox()
-        # cluster = sdk.get_cluster()
-        # for fs_name in fs_names:
-        # try:
-            # fs = ibox.volumes.choose(name=fs_name)
-            # cluster.unmap_volume(volume=fs)
-        # try:
-            # ibox.volumes.choose(name=fs)
-
+    @classmethod
+    def tearDownClass(cls):
+        for fs in fs_names + ['fs_test_for_shares']:
+            try:
+                cmd = ['smbmgr', 'fs', 'delete', '--name={}'.format(fs), '--yes']
+                execute(cmd)
+            except:
+                pass
 
     def _get_random_size(self):
         import random
@@ -91,15 +88,18 @@ class TestCli(unittest.TestCase):
         self.assertIn(outputs.share_query_header, result)
         self.assertIn('share1', result)
         self.assertIn('share 2', result)
-        self.assertIn('long_share_3_and    more', result)
+        self.assertIn('long_share_3...', result)
 
     def test_06_share_resize(self):
         for share in share_names:
             cmd = ['smbmgr', 'share', 'resize', '--name={}'.format(share),
-                   '--size={}'.format(self._get_random_size())]
+                   '--size={}'.format(self._get_random_size()), '--yes']
             result = execute(cmd).get_stdout()
-            if not (outputs.bad_share_resize in result) or not (outputs.share_created in result):
-                raise
+            if (outputs.bad_share_resize in result) or (outputs.share_limited in result):
+                pass
+            else:
+                # Test Failed
+                self.assertTrue(False)
 
     def test_07_share_delete(self):
         for share in share_names:
