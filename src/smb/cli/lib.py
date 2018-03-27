@@ -126,7 +126,8 @@ def get_path_free_size(full_path):
 
 
 def is_disk_in_cluster(disk_win_id):
-    is_disk_in_cluster_script = path.realpath(path.join(PROJECTROOT, 'powershell', 'DiskToClusterDiskResource.ps1'))
+    is_disk_in_cluster_script = path.realpath(path.join(PROJECTROOT, 'src', 'smb', 'cli', 'powershell',
+                                                        'DiskToClusterDiskResource.ps1'))
     output = execute(['powershell', '-c', '$Disk =' 'Get-Disk', '-Number', str(disk_win_id), ';',
                       '.', pad_text(is_disk_in_cluster_script), '-Disk', '$Disk'])
     if 'MSCluster' in output.get_stdout():

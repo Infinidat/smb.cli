@@ -93,7 +93,8 @@ def _run_prep_vol_to_cluster_script(fs):
     # TODO: handle the cases where fs.get_winid is None
     from smb import PROJECTROOT
     from os import path
-    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, 'powershell', 'prep_vol_to_cluster.ps1'))
+    vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, 'src', 'smb', 'cli',
+                                                    'powershell', 'prep_vol_to_cluster.ps1'))
     if fs.get_winid() is None:
         log_n_raise(logger, "Can't prepare volume {}".format(fs.get_name()), level=ERROR, color="red")
     try:
@@ -108,7 +109,8 @@ def _run_attach_vol_to_cluster_script(fs):
     # TODO: move to run
     from smb import PROJECTROOT
     from os import path
-    attach_vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, 'powershell', 'add_vol_to_cluster.ps1'))
+    attach_vol_to_cluster_script = path.realpath(path.join(PROJECTROOT, 'src', 'smb', 'cli',
+                                                           'powershell', 'add_vol_to_cluster.ps1'))
     try:
         cmd = execute_assert_success(['powershell', '.', '"' + attach_vol_to_cluster_script.replace('\\', '/') +
                                  '"' + " -DiskNumber {}".format(fs.get_winid())])

@@ -8,8 +8,8 @@ Param([Parameter(Mandatory=$true)][int]$DiskNumber,
    Default drive letter is defined at $INFINIDAT_CONFIG.TempDriveLetter
 #>
 
-. 'C:\Program Files\INFINIDAT\smb.cli\powershell\lib.ps1'
-. 'C:\Program Files\INFINIDAT\smb.cli\powershell\lib_cluster.ps1'
+. 'C:\Program Files\INFINIDAT\smb.cli\src\smb\cli\powershell\lib.ps1'
+. 'C:\Program Files\INFINIDAT\smb.cli\src\smb\cli\powershell\lib_cluster.ps1'
 
 $ProgressPreference='SilentlyContinue'
 $LogID = $MyInvocation.MyCommand.Name.Substring(0, $MyInvocation.MyCommand.Name.Length - 4)
