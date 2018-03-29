@@ -1,5 +1,5 @@
 import infinisdk
-from smb.cli.config import config_get
+from smb.cli.config import config_get, validate_key_val
 from infi.credentials_store import CLICredentialsStore
 
 
@@ -12,6 +12,7 @@ class SMBCrdentialsStore(CLICredentialsStore):
         if credentials is None:
             return False
         config = config_get(silent=True)
+        validate_key_val('IboxAddress', config['IboxAddress'])
         try:
             ibox = infinisdk.InfiniBox(config['IboxAddress'], auth=(credentials.get_username(), credentials.get_password()))
             ibox.login()
@@ -31,6 +32,7 @@ def initiate_store(store_name):
 class InfiSdkObjects(object):
     def __init__(self):
         self.config = config_get(silent=True)
+        validate_key_val('IboxAddress', self.config['IboxAddress'])
         self.ibox = self.ibox_login()
 
     def get_ibox(self):

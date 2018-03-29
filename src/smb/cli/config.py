@@ -108,6 +108,9 @@ def generate_config():
     raise SmbCliExited()
 
 def config_get(silent=False, skip_validation=False):
+    if not path.exists(conf_dir):
+        mkdir(conf_dir)
+        generate_config()
     config = read_config(conf_file)
     if silent or not config:
         return config
@@ -127,7 +130,3 @@ def config_set(key, value):
     key, value = validate_key_val(key, value)
     change_powershell_config(key, value)
 
-
-if not path.exists(conf_dir):
-    mkdir(conf_dir)
-    generate_config()
