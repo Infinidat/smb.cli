@@ -7,7 +7,9 @@ The parameters in the infinidat_config file are explained here with examples
 
 - The infinidat_config is a text file. Do not change its structure, prefixes, etc.
 - The only values that are allowed to be changed are the text inside the ticks ("). For example, PoolName = "edit here"
-- It is recommended to edit the text file only after the installation completes. Then, do not further touch it while undergoing regular work.
+- It is recommended to edit/configure the text file only after the installation completes.
+  once you reached a working state with the config file it's recommanded not to modify it
+- **If you messed up the file to much you can always delete it and the code would regenerate it**
 
 
 ## Config File Parameters

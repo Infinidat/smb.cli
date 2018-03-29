@@ -1,8 +1,0 @@
-@{
-    TempDriveLetter = "Z:\"
-    MountRoot = "G:\"
-    PoolName = "<infinibox_pool>"
-    Cluster = "<infinibox_cluster>"
-    IboxAddress = "<infinibox_address>"
-    FSRoleName = "<ms_role_name>"
-}
