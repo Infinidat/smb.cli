@@ -4,7 +4,7 @@ from os import path, pardir
 from smb.cli.config import config_get
 from infi.execute import execute_assert_success, execute
 from smb.cli.smb_log import get_logger, log, log_n_raise
-from logging import DEBUG, INFO, WARNING, ERROR
+from logging import INFO, WARNING
 from smb import PROJECTROOT
 logger = get_logger()
 

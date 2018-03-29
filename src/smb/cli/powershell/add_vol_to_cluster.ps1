@@ -1,7 +1,7 @@
 Param([Parameter(Mandatory=$true)][int]$DiskNumber)
 
-. 'C:\Program Files\INFINIDAT\smb.cli\powershell\src\smb\cli\lib.ps1'
-. 'C:\Program Files\INFINIDAT\smb.cli\powershell\src\smb\cli\lib_cluster.ps1'
+. 'C:\Program Files\INFINIDAT\smb.cli\src\smb\cli\powershell\lib.ps1'
+. 'C:\Program Files\INFINIDAT\smb.cli\src\smb\cli\powershell\lib_cluster.ps1'
 $LogID = $MyInvocation.MyCommand.Name.Substring(0, $MyInvocation.MyCommand.Name.Length - 4)
 $ADD_VOL_TO_CLUSTER_RETRY_COUNT = 5
 Update-HostStorageCache

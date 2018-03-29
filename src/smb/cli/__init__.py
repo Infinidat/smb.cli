@@ -119,7 +119,7 @@ def arguments_to_functions(arguments):
     except Exception as e:
         log(logger, traceback.format_exc())
         message = '''{} \n(This is Unusual)
-Please collect the Logs from "{}" and contact Infinidat Support'''
+Please collect the Logs from "{}" and open a ticket on github'''
         log(logger, message.format(e, logger.handlers[0].baseFilename), level=ERROR, color="red")
         return 1
 
