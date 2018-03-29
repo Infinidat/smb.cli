@@ -2,6 +2,7 @@ import unittest
 import outputs
 from smb.cli import ps_cmd
 from infi.execute import execute_assert_success, execute
+from smb.cli.ibox_connect import InfiSdkObjects
 share_names = ['share1', 'share 2', 'long_share_3_and    more']
 fs_names = ['fs1', 'fs2', 'fs3']
 
@@ -16,12 +17,19 @@ class TestCli(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        sdk = InfiSdkObjects()
         for fs in fs_names + ['fs_test_for_shares']:
             try:
                 cmd = ['smbmgr', 'fs', 'delete', '--name={}'.format(fs), '--yes']
                 execute(cmd)
             except:
                 pass
+        try:
+            for fs in fs_names + ['fs_test_for_shares']:
+                vol = sdk.volumes.choose(name=fs)
+                vol.delete
+        except:
+            pass
 
     def _get_random_size(self):
         import random
@@ -113,3 +121,10 @@ class TestCli(unittest.TestCase):
         cmd = ['smbmgr', 'share', 'query']
         result = execute_assert_success(cmd).get_stdout()
         self.assertIn(outputs.no_shares, result)
+
+    def test_09_config_set(self):
+        cmd = ['smbmgr', 'config', 'set', 'TempDriveLetter=v:\\']
+        result = execute_assert_success(cmd).get_stdout()
+        self.assertIn(outputs.config_set, result)
+        cmd = ['smbmgr', 'config', 'set', 'TempDriveLetter=Z:']
+        result = execute_assert_success(cmd).get_stdout()

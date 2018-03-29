@@ -20,3 +20,5 @@ share_deleted =  "INFO: {} Share Deleted"
 share_limited = 'limited to'
 
 no_shares = 'INFO: No Share Are Defined'
+
+config_set = 'TempDriveLetter: V:'

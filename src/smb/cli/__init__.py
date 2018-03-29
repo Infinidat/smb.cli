@@ -38,10 +38,7 @@ from logging import DEBUG, INFO, WARNING, ERROR
 from smb.cli import lib
 from smb.cli.__version__ import __version__
 logger = get_logger()
-try:
-    config = config_get(silent=True)
-except SmbCliExited:
-    exit(1)
+
 
 def commandline_to_docopt(argv):
     import docopt
@@ -72,6 +69,7 @@ def in_cli(argv=sys.argv[1:]):
 def _use_default_config_if_needed(arguments):
     '''Set default values from config in case the user didn't put them.
     In our case only pool '''
+    config = config_get(silent=True)
     if not arguments['--pool']:
         arguments['--pool'] = config['PoolName']
     return arguments
@@ -80,8 +78,18 @@ def _use_default_config_if_needed(arguments):
 def arguments_to_functions(arguments):
     log(logger, "Arguments received from user:{}".format(arguments))
     try:
-        if not (arguments['config'] and arguments['get']):
-            sdk = lib.prechecks()
+        if arguments['config']:
+            if arguments['get']:
+                run_config_get()
+                return
+            if arguments['set']:
+                run_config_set(arguments)
+                return
+        try:
+            config = config_get(silent=True)
+        except SmbCliExited:
+            return
+        sdk = lib.prechecks()
         if arguments['fs']:
             arguments = _use_default_config_if_needed(arguments)
             if arguments['create']:
@@ -103,11 +111,6 @@ def arguments_to_functions(arguments):
                 run_share_resize(arguments, sdk)
             if arguments['delete']:
                 run_share_delete(arguments)
-        if arguments['config']:
-            if arguments['get']:
-                run_config_get()
-            if arguments['set']:
-                run_config_set(arguments, sdk)
     except KeyboardInterrupt:
         log(logger, "Keyboard break received, exiting")
         return
@@ -133,12 +136,14 @@ def run_fs_create(arguments, sdk):
 
 def run_fs_attach(arguments, sdk):
     from smb.cli.fs import fs_attach
+    config = config_get(silent=True)
     lib.approve_danger_op("Adding volume {} to Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
     log(logger, "calling {}")
     fs_attach(arguments['--name'], sdk, arguments['--force'])
 
 
 def run_fs_detach(arguments, sdk):
+    config = config_get(silent=True)
     from smb.cli.fs import fs_detach
     lib.approve_danger_op("Detaching Filesystem {} from Cluster {}".format(arguments['--name'], config['Cluster']), arguments)
     fs_detach(arguments['--name'], sdk)
@@ -181,8 +186,9 @@ def run_config_get():
     config_get()
 
 
-def run_config_set(arguments, sdk):
+def run_config_set(arguments):
     from smb.cli.config import config_set, config_get
+    config = config_get(silent=True)
     log(logger, "Current Config:", raw=True)
     if config is None:
         return
@@ -191,6 +197,6 @@ def run_config_set(arguments, sdk):
     if key.lower() not in config_case_sensitive.keys():
         log(logger, "{} is not valid for your config".format(key), color="red", raw=True)
         return
-    config_set(config_case_sensitive[key.lower()], value, sdk)
+    config_set(config_case_sensitive[key.lower()], value)
     log(logger, "New Config:", level=INFO)
-    config_get()
+    config_get(skip_validation=True)
