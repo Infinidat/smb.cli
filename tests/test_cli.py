@@ -126,5 +126,5 @@ class TestCli(unittest.TestCase):
         cmd = ['smbmgr', 'config', 'set', 'TempDriveLetter=v:\\']
         result = execute_assert_success(cmd).get_stdout()
         self.assertIn(outputs.config_set, result)
-        cmd = ['smbmgr', 'config', 'set', 'TempDriveLetter=Z:']
+        cmd = ['smbmgr', 'config', 'set', 'TempDriveLetter=Z:\\']
         result = execute_assert_success(cmd).get_stdout()
