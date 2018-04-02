@@ -9,8 +9,10 @@ Current capabilities include:
 
 Installation
 ============
-Go to http://code.infinidat.com
-Download the latest smb.cli package
+Go to https://github.com/Infinidat/smb.cli/releases
+Download the latest msi package
+Verify msi using the md5sum.
+You can get help for the setup using the the pdf docs attached to the release
 Install using the grafical interface at default path location.
 (C:\Program Files\Infinidat\smb.cli)
 
