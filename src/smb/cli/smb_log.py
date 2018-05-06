@@ -51,4 +51,4 @@ def log_n_raise(logger, message, level=ERROR, disable_print=False):
         log(logger, message, level=ERROR, color="red", disable_print=disable_print)
     if level == WARNING:
         log(logger, message, level=WARNING, color="yellow", disable_print=disable_print)
-    raise SmbCliExited()
+    raise SmbCliExited(message)
