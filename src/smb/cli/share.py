@@ -193,20 +193,6 @@ def _share_create_prechecks(share_name, share_path, create_path, sdk):
     MAX_PATH_LENTH = 120  # max share char because we are parsing output this might be a problem
     vaild_fs = False
     full_path = path.normcase(share_path)
-    for share in existing_shares:
-        if share.get_name() == share_name:
-            log_n_raise(logger, "Share Name Conflict ! {} Share Name Exists".format(share_name))
-        if path.realpath(share.get_path()) == full_path:
-            log_n_raise(logger, "'{}' is Already Shared, Lucky You ?!".format(share_path), level=WARNING)
-    if not path.exists(full_path):
-        log(logger, "Path: {} doesn't exist.".format(full_path), level=INFO, color="yellow")
-        if not create_path:
-            log(logger, "Would you like to create it ?", level=INFO, color="yellow")
-            lib.approve_operation()
-        log(logger, "Creating {}".format(full_path), level=INFO, color="yellow")
-        makedirs(full_path)
-    if len(full_path) > MAX_PATH_LENTH:
-        log_n_raise(lgger, "Path length is to long. path length of {} characters is currently supported", level=WARNING)
     filesystems = _get_all_fs(sdk)
     for filesystem in filesystems:
         if lib.is_path_part_of_path(full_path, filesystem['mount']):
@@ -215,9 +201,24 @@ def _share_create_prechecks(share_name, share_path, create_path, sdk):
             if lib.is_disk_in_cluster(filesystem['winid']) is False:
                 log_n_raise(logger, "{} isn't part of the SMB Cluster".format(full_path))
     if vaild_fs is False:
-        log_n_raise(logger, "{} is NOT a valid share path".format(full_path))
+        log_n_raise(logger, "{} share path, does NOT reside on the cluster".format(full_path))
     if fs_path == full_path:
-        log_n_raise(logger, "Can't create share on filesystem ROOT (G:\<fs_name>).", level=WARNING)
+        log_n_raise(logger, "Can't create share on filesystem ROOT (example: G:\<fs_name> is invalid).", level=WARNING)
+    for share in existing_shares:
+        if share.get_name() == share_name:
+            log_n_raise(logger, "Share Name Conflict ! {} Share Name Exists".format(share_name))
+        if path.realpath(share.get_path()) == full_path:
+            log_n_raise(logger, "'{}' is Already Shared, Lucky You ?!".format(share_path), level=WARNING)
+    if len(full_path) > MAX_PATH_LENTH:
+        log_n_raise(logger, "Path length is to long. path length of {} characters is currently supported".
+                            format(MAX_PATH_LENTH), level=WARNING)
+    if not path.exists(full_path):
+        log(logger, "Path: {} doesn't exist.".format(full_path), level=INFO, color="yellow")
+        if not create_path:
+            log(logger, "Would you like to create it ?", level=INFO, color="yellow")
+            lib.approve_operation()
+        log(logger, "Creating {}".format(full_path), level=INFO, color="yellow")
+        makedirs(full_path)
     return full_path
 
 
