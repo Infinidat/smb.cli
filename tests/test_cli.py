@@ -4,6 +4,7 @@ from smb.cli import ps_cmd
 from infi.execute import execute_assert_success, execute
 from smb.cli.ibox_connect import InfiSdkObjects
 share_names = ['share1', 'share 2', 'long_share_3_and    more']
+limited_share = 'limited_share'
 fs_names = ['fs1', 'fs2', 'fs3']
 
 class TestCli(unittest.TestCase):
@@ -89,6 +90,10 @@ class TestCli(unittest.TestCase):
                    '--path=g:\\fs_test_for_shares\\{}'.format(share), '--mkdir']
             result = execute(cmd).get_stdout()
             self.assertIn(outputs.share_created.format(share), result)
+        cmd = ['smbmgr', 'share', 'create', '--name={}'.format(limited_share),
+               '--path=g:\\fs_test_for_shares\\{}'.format(limited_share), '--mkdir']
+        result = execute(cmd).get_stdout()
+        self.assertIn(outputs.share_created.format(share), result)
 
     def test_05_share_query(self):
         cmd = ['smbmgr', 'share', 'query']
@@ -110,7 +115,7 @@ class TestCli(unittest.TestCase):
                 self.assertTrue(False)
 
     def test_07_share_delete(self):
-        for share in share_names:
+        for share in share_names + [limited_share]:
             cmd = ['smbmgr', 'share', 'delete', '--name={}'.format(share), '--yes']
             result = execute(cmd).get_stdout()
             self.assertIn(outputs.share_deleted.format(share), result)

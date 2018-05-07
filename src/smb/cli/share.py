@@ -225,7 +225,9 @@ def _share_create_prechecks(share_name, share_path, create_path, sdk):
 def _share_limit_prechecks_and_set(share_name, size, sdk):
     from smb.cli.__version__ import __version__
     shares_data = get_all_shares_data()
+    log(logger, "all shares data:{}".format(shares_data))
     filesystems_data = _get_all_fs(sdk)
+    log(logger, "all FS data:{}".format(filesystems_data))
     shares = join_fs_and_share(filesystems_data, shares_data)
     shares_paths = [share.get_path() for share in shares]
     share = find_share_from_list_of_shares(shares, share_name=share_name)
@@ -257,7 +259,7 @@ def share_create(share_name, share_path, mkdir, size, sdk):
     ps_cmd._run_create_share_limit_default(share_path)
     if size == 0:
         return
-    share_limit(share_path, size)
+    share_limit(share_name, size, sdk)
 
 
 def share_limit(share_name, size, sdk):
