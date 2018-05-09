@@ -72,9 +72,12 @@ def print_share_query(shares, units, detailed=False):
         quota = share.get_size()
         usedquota = share.get_usage()
         if units:
-            quota = str(quota / units) + " " + str(units)[2:]
-            usedquota = str(usedquota / units) + " " + str(units)[2:]
-            filesystemfree = str(share.get_free_space() / units) + " " + str(units)[2:]
+            quota = "{:.2f}".format(float(str(float(quota.roundup(MiB) / MiB) * MiB / units)))
+            quota = quota + " " + str(units)[2:]
+            usedquota = "{:.2f}".format(float(str(float(usedquota.roundup(MiB) / MiB) * MiB / units)))
+            usedquota = usedquota + " " + str(units)[2:]
+            filesystemfree = "{:.2f}".format(float(str(float(filesystemfree.roundup(MiB) / MiB) * MiB / units)))
+            filesystemfree = filesystemfree + " " + str(units)[2:]
         if None in [quota, share.get_free_space(), usedquota]:
             fsname = "**INVALID**"
         else:
