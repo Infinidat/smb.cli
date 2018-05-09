@@ -19,9 +19,8 @@ class TestInit(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
-        # arguments = commandline_to_docopt(['fs', 'delete', '--name=base_fs', '--yes'])
-        # smb.cli.run_fs_delete(arguments, InfiSdkObjects())
+        arguments = commandline_to_docopt(['fs', 'delete', '--name=base_fs', '--yes'])
+        smb.cli.run_fs_delete(arguments, InfiSdkObjects())
 
     def test_share_prechecks(self):
         self.assertRaisesRegexp(SmbCliExited, outputs.share_root_error,
