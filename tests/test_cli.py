@@ -54,7 +54,7 @@ class TestCli(unittest.TestCase):
         result = execute(cmd)
         result_out = result.get_stdout()
         self.assertNotIn(outputs.fs_query_header, result_out)
-        self.assertEqual(outputs.not_active_node, result_out)
+        self.assertIn(outputs.not_active_node, result_out)
         ps_cmd._perform_cluster_failover()
 
     def test_01_fs_create(self):
