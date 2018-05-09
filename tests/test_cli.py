@@ -91,9 +91,9 @@ class TestCli(unittest.TestCase):
             result = execute(cmd).get_stdout()
             self.assertIn(outputs.share_created.format(share), result)
         cmd = ['smbmgr', 'share', 'create', '--name={}'.format(limited_share),
-               '--path=g:\\fs_test_for_shares\\{}'.format(limited_share), '--mkdir']
+               '--path=g:\\fs_test_for_shares\\{}'.format(limited_share),'--size=100MB', '--mkdir']
         result = execute(cmd).get_stdout()
-        self.assertIn(outputs.share_created.format(share), result)
+        self.assertIn(outputs.share_created.format(limited_share), result)
 
     def test_05_share_query(self):
         cmd = ['smbmgr', 'share', 'query']
