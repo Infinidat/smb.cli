@@ -47,12 +47,12 @@ def validate_key_val(key, val):
     dns_name = re.compile('([a-zA-Z0-9\-\_]+\.)+([a-zA-Z0-9\-\_]+$)')
     ip_address = re.compile('((25[0-5]|2[0-4][0-9]|[1][0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|[1][0-9][0-9]|[1-9]?[0-9])')
     ms_drive_letter = re.compile(r'^[a-zA-Z]{1}:{1}\\{1}$')
-    if key_lower in [ 'fsrolename', 'poolname', 'cluster']:
+    if key_lower in ['fsrolename', 'poolname', 'cluster']:
         if not re.match(regular_chars, val):
             log_n_raise(logger, "Only non-spacial Characters are Supported for {}".format(key))
     if key_lower in ['fsrolename', 'cluster']:
         if len(val) > MAX_ROLE_NAME:
-            log_n_raise(logger,"{} Value is to long. Max allowed Characters are {}".format(key, MAX_ROLE_NAME))
+            log_n_raise(logger, "{} Value is to long. Max allowed Characters are {}".format(key, MAX_ROLE_NAME))
         # add verify that the cluster and cluster role is the same
     if key_lower == 'poolname' and len(val) > MAX_POOL_NAME:
         log_n_raise(logger, "{} Value is to long. Max allowed Characters are {}".format(key, MAX_POOL_NAME))
@@ -74,7 +74,7 @@ def validate_config(config):
     default_val = re.compile('<.+>$')
     keys = ['FSRoleName', 'PoolName', 'Cluster', 'MountRoot', 'TempDriveLetter', 'IboxAddress']
     for key in keys:
-        if not config.has_key(key):
+        if key not in config:
             log_n_raise(logger, "Not all parameters are in the config file. Config file {} is Invalid".format(conf_file))
     for key, val in config.iteritems():
         if re.search(default_val, val):
@@ -126,7 +126,5 @@ def config_get(silent=False, skip_validation=False):
 
 
 def config_set(key, value):
-    from fs import _validate_pool_name
     key, value = validate_key_val(key, value)
     change_powershell_config(key, value)
-
