@@ -236,8 +236,10 @@ def print_fs_query(mapped_vols, print_units, serial_list, sdk, detailed=False):
         fs = Fs(volume, sdk, win_id)
         num_of_shares = lib.count_shares_on_fs(fs.get_mountpoint(), shares_paths)
         if print_units:
-            fs_size = str((fs.get_fs_size() / print_units)) + " " + str(print_units)[2:]
-            used_size = str((fs.get_used_size() / print_units)) + " " + str(print_units)[2:]
+            fs_size = "{:.2f}".format(float(str(float(fs.get_fs_size().roundup(MiB) / MiB) * MiB / print_units)))
+            fs_size = fs_size + " " + str(print_units)[2:]
+            used_size = "{:.2f}".format(float(str(float(fs.get_used_size().roundup(MiB) / MiB) * MiB / print_units)))
+            used_size = used_size + " " + str(print_units)[2:]
         else:
             fs_size = fs.get_fs_size() if Capacity(0) != fs.get_fs_size() else 0
             used_size = fs.get_used_size() if Capacity(0) != fs.get_used_size() else 0

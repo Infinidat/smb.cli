@@ -1,10 +1,14 @@
 import unittest
 import outputs
 from smb.cli import ps_cmd
+from smb.cli.smb_log import get_logger, log
 from infi.execute import execute_assert_success, execute
 from smb.cli.ibox_connect import InfiSdkObjects
 share_names = ['share1', 'share 2', 'long_share_3_and    more']
+limited_share = 'limited_share'
 fs_names = ['fs1', 'fs2', 'fs3']
+# TODO: add new log for tests
+logger = get_logger()
 
 class TestCli(unittest.TestCase):
     @classmethod
@@ -17,6 +21,7 @@ class TestCli(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        log(logger, "Starting Teardown")
         sdk = InfiSdkObjects()
         for fs in fs_names + ['fs_test_for_shares']:
             try:
@@ -46,10 +51,10 @@ class TestCli(unittest.TestCase):
         result = execute(cmd)
         self.assertIn(outputs.fs_query_header, result.get_stdout())
         ps_cmd._perform_cluster_failover()
-        result = execute_assert_success(cmd)
+        result = execute(cmd)
         result_out = result.get_stdout()
         self.assertNotIn(outputs.fs_query_header, result_out)
-        self.assertEqual(outputs.not_active_node, result_out)
+        self.assertIn(outputs.not_active_node, result_out)
         ps_cmd._perform_cluster_failover()
 
     def test_01_fs_create(self):
@@ -89,6 +94,10 @@ class TestCli(unittest.TestCase):
                    '--path=g:\\fs_test_for_shares\\{}'.format(share), '--mkdir']
             result = execute(cmd).get_stdout()
             self.assertIn(outputs.share_created.format(share), result)
+        cmd = ['smbmgr', 'share', 'create', '--name={}'.format(limited_share),
+               '--path=g:\\fs_test_for_shares\\{}'.format(limited_share),'--size=100MB', '--mkdir']
+        result = execute(cmd).get_stdout()
+        self.assertIn(outputs.share_created.format(limited_share), result)
 
     def test_05_share_query(self):
         cmd = ['smbmgr', 'share', 'query']
@@ -106,11 +115,10 @@ class TestCli(unittest.TestCase):
             if (outputs.bad_share_resize in result) or (outputs.share_limited in result):
                 pass
             else:
-                # Test Failed
-                self.assertTrue(False)
+                self.assertTrue(False) # Test Failure
 
     def test_07_share_delete(self):
-        for share in share_names:
+        for share in share_names + [limited_share]:
             cmd = ['smbmgr', 'share', 'delete', '--name={}'.format(share), '--yes']
             result = execute(cmd).get_stdout()
             self.assertIn(outputs.share_deleted.format(share), result)

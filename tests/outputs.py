@@ -15,10 +15,18 @@ already_shared = "WARNING: '{}' is Already Shared, Lucky You ?!"
 
 share_created = "INFO: '{}' Share Created"
 
-share_deleted =  "INFO: {} Share Deleted"
+share_deleted = "INFO: {} Share Deleted"
 
 share_limited = 'limited to'
 
 no_shares = 'INFO: No Share Are Defined'
 
 config_set = 'TempDriveLetter: V:'
+
+share_root_error = "create share on filesystem ROOT"
+
+share_not_part_of_cluster = " does NOT reside on the cluster"
+
+share_name_conflict = 'Share Name Conflict'
+
+share_name_too_long = 'Path length is to long. path length of'

@@ -21,7 +21,7 @@ Development
 
 If you'd like to develop and build from scratch this package you have 2 options:
 
-(Option 1 ) Developing on top of the MSI installation ( less recomanded ) 
+(Option 1 ) Developing on top of the MSI installation ( less recommended ) 
 -------------------------------------------------------------------------
 In this option install the MSI package.
 Perform the changes you'd like in the code.
